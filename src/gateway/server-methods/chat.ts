@@ -684,6 +684,7 @@ export const chatHandlers: GatewayRequestHandlers = {
     const p = params as {
       sessionKey: string;
       message: string;
+      bodyForAgent?: string;
       thinking?: string;
       deliver?: boolean;
       attachments?: Array<{
@@ -731,6 +732,21 @@ export const chatHandlers: GatewayRequestHandlers = {
         return;
       }
     }
+
+    let bodyForAgent = parsedMessage;
+    if (typeof p.bodyForAgent === "string") {
+      const sanitizedBodyForAgentResult = sanitizeChatSendMessageInput(p.bodyForAgent);
+      if (!sanitizedBodyForAgentResult.ok) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, sanitizedBodyForAgentResult.error),
+        );
+        return;
+      }
+      bodyForAgent = sanitizedBodyForAgentResult.message;
+    }
+
     const rawSessionKey = p.sessionKey;
     const { cfg, entry, canonicalKey: sessionKey } = loadSessionEntry(rawSessionKey);
     const timeoutMs = resolveAgentTimeoutMs({
@@ -809,7 +825,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       // Inject timestamp so agents know the current date/time.
       // Only BodyForAgent gets the timestamp — Body stays raw for UI display.
       // See: https://github.com/moltbot/moltbot/issues/3658
-      const stampedMessage = injectTimestamp(parsedMessage, timestampOptsFromConfig(cfg));
+      const stampedMessage = injectTimestamp(bodyForAgent, timestampOptsFromConfig(cfg));
 
       const ctx: MsgContext = {
         Body: parsedMessage,

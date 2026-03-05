@@ -9,6 +9,7 @@ import {
   resolveStateDir,
   resolveGatewayPort,
 } from "../../config/config.js";
+import { startElytrasSyncLoop } from "../../elytras/runtime-sync.js";
 import { resolveGatewayAuth } from "../../gateway/auth.js";
 import { startGatewayServer } from "../../gateway/server.js";
 import type { GatewayWsLogStyle } from "../../gateway/ws-logging.js";
@@ -111,6 +112,39 @@ function formatModeErrorList<T extends string>(modes: readonly T[]): string {
     return `${quoted[0]} or ${quoted[1]}`;
   }
   return `${quoted.slice(0, -1).join(", ")}, or ${quoted[quoted.length - 1]}`;
+}
+
+function fileContainsEnvKey(filePath: string, key: string): boolean {
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    return new RegExp(`^\\s*${key}\\s*=`, "m").test(raw);
+  } catch {
+    return false;
+  }
+}
+
+function shouldStartElytrasSync(): boolean {
+  if (process.env.OPENCLAW_DISABLE_ELYTRAS_SYNC === "1") {
+    return false;
+  }
+  if (process.env.DATABASE_URL || process.env.ELYTRAS_ENCRYPTION_KEY) {
+    return true;
+  }
+  const cwd = process.cwd();
+  const candidateFiles = [
+    path.join(cwd, ".env.local"),
+    path.join(cwd, ".env"),
+    path.join(cwd, "apps", "web", ".env.local"),
+    path.join(cwd, "apps", "web", ".env"),
+  ];
+  return candidateFiles.some(
+    (filePath) =>
+      fileContainsEnvKey(filePath, "DATABASE_URL") ||
+      fileContainsEnvKey(filePath, "ELYTRAS_ENCRYPTION_KEY"),
+  );
 }
 
 function resolveGatewayRunOptions(opts: GatewayRunOpts, command?: Command): GatewayRunOpts {
@@ -348,6 +382,16 @@ async function runGatewayCommand(opts: GatewayRunOpts) {
         }
       : undefined;
 
+  // Elytras: synchroniser la config DB quand les variables Elytras sont
+  // disponibles via env process ou fichiers .env locaux.
+  if (shouldStartElytrasSync()) {
+    try {
+      await startElytrasSyncLoop();
+    } catch (err) {
+      gatewayLog.warn(`[elytras] Impossible de démarrer la sync DB: ${String(err)}`);
+    }
+  }
+
   try {
     await runGatewayLoop({
       runtime: defaultRuntime,
@@ -357,6 +401,7 @@ async function runGatewayCommand(opts: GatewayRunOpts) {
           bind,
           auth: authOverride,
           tailscale: tailscaleOverride,
+          openAiChatCompletionsEnabled: true,
         }),
     });
   } catch (err) {

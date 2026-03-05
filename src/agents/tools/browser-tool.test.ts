@@ -307,6 +307,63 @@ describe("browser tool url alias support", () => {
   });
 });
 
+describe("browser tool chrome relay fallback", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    configMocks.loadConfig.mockReturnValue({ browser: {} });
+    nodesUtilsMocks.listNodes.mockResolvedValue([]);
+  });
+
+  it("retries with profile=openclaw when default chrome relay has no attached tab", async () => {
+    browserClientMocks.browserStatus
+      .mockRejectedValueOnce(
+        new Error(
+          'Chrome extension relay is running, but no tab is connected. Click the OpenClaw Chrome extension icon on a tab to attach it (profile "chrome").',
+        ),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        running: true,
+        pid: 1,
+        cdpPort: 18792,
+        cdpUrl: "http://127.0.0.1:18792",
+      });
+
+    const tool = createBrowserTool();
+    await expect(tool.execute?.("call-1", { action: "status" })).resolves.toBeDefined();
+
+    expect(browserClientMocks.browserStatus).toHaveBeenNthCalledWith(
+      1,
+      undefined,
+      expect.objectContaining({ profile: undefined }),
+    );
+    expect(browserClientMocks.browserStatus).toHaveBeenNthCalledWith(
+      2,
+      undefined,
+      expect.objectContaining({ profile: "openclaw" }),
+    );
+  });
+
+  it("does not fallback when profile=chrome is explicit", async () => {
+    browserClientMocks.browserStatus.mockRejectedValueOnce(
+      new Error(
+        'Chrome extension relay is running, but no tab is connected. Click the OpenClaw Chrome extension icon on a tab to attach it (profile "chrome").',
+      ),
+    );
+
+    const tool = createBrowserTool();
+    await expect(tool.execute?.("call-1", { action: "status", profile: "chrome" })).rejects.toThrow(
+      /no tab is connected/i,
+    );
+
+    expect(browserClientMocks.browserStatus).toHaveBeenCalledTimes(1);
+    expect(browserClientMocks.browserStatus).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ profile: "chrome" }),
+    );
+  });
+});
+
 describe("browser tool snapshot labels", () => {
   afterEach(() => {
     vi.clearAllMocks();
