@@ -248,8 +248,82 @@ def estimate_cost(model: str, pt: int, ct: int) -> float:
     return round(pt / 1e6 * pin + ct / 1e6 * pout, 5)
 
 
+class ElytrasGatewayProvider:
+    """Provider qui passe par la PASSERELLE IA centrale (resell géré).
+
+    Côté instance client : ELYTRAS_GATEWAY_URL + ELYTRAS_GATEWAY_KEY (clé de service du
+    client) + ELYTRAS_GATEWAY_TIER (gamme : eco/standard/max). La passerelle parle
+    OpenAI chat/completions ; on traduit l'agentique Responses <-> chat/completions ici,
+    pour que la boucle d'agent existante fonctionne sans changement.
+    """
+    name = "elytras-gateway"
+
+    def __init__(self, model: str | None = None):
+        self.base_url = os.environ.get("ELYTRAS_GATEWAY_URL", "http://127.0.0.1:8088").rstrip("/")
+        self.key = os.environ.get("ELYTRAS_GATEWAY_KEY", "")
+        self.default_model = model or os.environ.get("ELYTRAS_GATEWAY_TIER", "eco")
+
+    def _post(self, payload: dict) -> dict:
+        if not self.key:
+            raise RuntimeError("Passerelle non configurée — ELYTRAS_GATEWAY_KEY manquant.")
+        r = httpx.post(f"{self.base_url}/v1/chat/completions", timeout=180,
+                       headers={"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"},
+                       json=payload)
+        r.raise_for_status()
+        return r.json()
+
+    def complete(self, messages: list[dict], model: str | None = None) -> Completion:
+        d = self._post({"model": model or self.default_model, "messages": messages})
+        u = d.get("usage", {})
+        return Completion(text=d["choices"][0]["message"].get("content") or "",
+                          model=d.get("model", self.default_model), provider=self.name,
+                          prompt_tokens=u.get("prompt_tokens", 0), completion_tokens=u.get("completion_tokens", 0))
+
+    # ── Traduction Responses <-> chat/completions (agentique) ──
+    @staticmethod
+    def _text_of(content) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "".join(c.get("text", "") for c in content if isinstance(c, dict))
+        return ""
+
+    def _item_to_messages(self, it: dict) -> list[dict]:
+        if it.get("type") == "function_call_output":
+            return [{"role": "tool", "tool_call_id": it.get("call_id"), "content": it.get("output", "")}]
+        if it.get("type") == "function_call":
+            return [{"role": "assistant", "content": None,
+                     "tool_calls": [{"id": it.get("call_id"), "type": "function",
+                                     "function": {"name": it.get("name"), "arguments": it.get("arguments") or ""}}]}]
+        if it.get("role"):
+            return [{"role": it["role"], "content": self._text_of(it.get("content"))}]
+        return []
+
+    @staticmethod
+    def _tool(t: dict) -> dict:
+        if t.get("type") == "function" and "function" not in t:
+            return {"type": "function", "function": {"name": t.get("name"),
+                    "description": t.get("description", ""), "parameters": t.get("parameters", {})}}
+        return t
+
+    def agent_turn(self, input_items: list, instructions: str, tools: list | None = None) -> dict:
+        messages: list[dict] = [{"role": "system", "content": instructions}] if instructions else []
+        for it in input_items:
+            messages.extend(self._item_to_messages(it))
+        payload: dict = {"model": self.default_model, "messages": messages}
+        if tools:
+            payload["tools"] = [self._tool(t) for t in tools]
+        d = self._post(payload)
+        msg = d["choices"][0]["message"]
+        calls = [{"call_id": tc.get("id"), "name": tc.get("function", {}).get("name"),
+                  "arguments": tc.get("function", {}).get("arguments") or ""}
+                 for tc in (msg.get("tool_calls") or []) if tc.get("function")]
+        return {"text": msg.get("content") or "", "tool_calls": calls}
+
+
 _PROVIDERS = {"codex": CodexProvider, "claude": ClaudeProvider,
-              "openai": OpenAIProvider, "ollama": OllamaProvider}
+              "openai": OpenAIProvider, "ollama": OllamaProvider,
+              "elytras-gateway": ElytrasGatewayProvider, "gateway": ElytrasGatewayProvider}
 
 
 class Gateway:

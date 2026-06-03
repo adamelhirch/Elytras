@@ -3,6 +3,8 @@ phase-0/.elytras-state.json
 .elytras-state.json
 phase-0/.elytras-key
 .elytras-key
+gateway/.gateway-state.json
+.gateway-state.json
 **/.env
 .env
 *.key
