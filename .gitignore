@@ -1,0 +1,28 @@
+# Secrets & état runtime — NE JAMAIS committer
+phase-0/.elytras-state.json
+.elytras-state.json
+phase-0/.elytras-key
+.elytras-key
+**/.env
+.env
+*.key
+*.pem
+
+# Tests
+.pytest_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+phase-0/.venv/
+*.egg-info/
+
+# Données locales (fichiers déposés, etc.)
+phase-0/files_data/
+
+# OS / éditeurs
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/

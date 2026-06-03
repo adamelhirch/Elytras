@@ -1,0 +1,3 @@
+# Optionnel — mémoire vectorielle sur Postgres + pgvector.
+# Inutile pour un déploiement local standard (mode fichier par défaut).
+psycopg[binary]==3.2.*

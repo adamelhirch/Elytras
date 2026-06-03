@@ -1,0 +1,10 @@
+# Elytras — dépendances cœur (mode fichier, sans base de données).
+# Tout fonctionne avec ces seuls paquets : déploiement local en 1 commande.
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+httpx==0.27.*
+pydantic==2.*
+cryptography>=42
+
+# Postgres = OPTIONNEL (mémoire vectorielle à grande échelle, multi-process).
+# Pour l'activer : pip install -r requirements-postgres.txt puis renseigner DATABASE_URL.

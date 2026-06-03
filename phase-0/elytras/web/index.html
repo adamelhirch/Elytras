@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elytras — Phase 0</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#ffffff; --panel2:#f3f5f8; --line:#e4e7ec;
+    --txt:#1f2533; --muted:#667085; --acc:#4f46e5; --acc-weak:#eef0fe;
+    --ok:#16a34a; --ko:#dc2626; --warn:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
+  header{padding:14px 28px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+  header h1{font-size:18px;margin:0;letter-spacing:.2px;font-weight:700}
+  header .tag{font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);padding:2px 9px;border-radius:999px}
+  header .sp{flex:1}
+  button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px;transition:filter .12s,background .12s}
+  button.ghost{background:#fff;color:var(--txt);border:1px solid var(--line);font-weight:500}
+  button.ghost:hover{background:var(--panel2)}
+  button:hover{filter:brightness(1.05)}
+  main{max-width:1140px;margin:0 auto;padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .card.full{grid-column:1/-1}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 12px;font-weight:600}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle}
+  .dot.ok{background:var(--ok)} .dot.ko{background:var(--ko)} .dot.warn{background:var(--warn)}
+  .row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .det{color:var(--muted);font-size:12.5px;margin-left:auto;text-align:right}
+  .pill{font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);padding:1px 8px;border-radius:999px}
+  .srv,.skill{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel2)}
+  .srv b,.skill b{font-size:13.5px}
+  .tool{display:flex;align-items:center;gap:8px;padding:6px 0}
+  .tool code{background:var(--panel2);border:1px solid var(--line);padding:1px 6px;border-radius:6px;color:#4338ca}
+  .tool .desc{color:var(--muted);font-size:12px;flex:1}
+  input,textarea{width:100%;background:#fff;border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:8px 10px;font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  select{background:#fff;border:1px solid var(--line);border-radius:9px;color:var(--txt);padding:7px 9px;font-size:13px}
+  input:focus,textarea:focus,select:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-weak)}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:320px;font-size:12px;color:#334155;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,monospace}
+  .muted{color:var(--muted)} .sm{font-size:12px}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  @media(max-width:780px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⬡ Elytras</h1><span class="tag">Phase 0 · cœur modulaire</span>
+  <span class="sm muted" style="margin-left:8px">connecté :</span>
+  <b id="me_name" class="sm">…</b>
+  <span id="me_role" class="pill"></span>
+  <button id="tg_btn" class="ghost sm" style="padding:4px 9px;display:none" onclick="setMyTelegram()">Mon Telegram</button>
+  <button id="logout_btn" class="ghost sm" style="padding:4px 9px;display:none" onclick="logout()">déconnexion</button>
+  <select id="user_select" style="display:none"></select>
+  <span class="sp"></span>
+  <span id="hstatus" class="sm muted">…</span>
+  <button onclick="runTests()">↻ Relancer les tests</button>
+</header>
+
+<div id="auth_overlay" style="display:none;position:fixed;inset:0;background:#ffffff;z-index:1000;align-items:center;justify-content:center">
+  <div style="border:1px solid var(--line);border-radius:14px;padding:26px;max-width:360px;width:90%;background:#f9fafb">
+    <h2 style="margin-top:0">⬡ Elytras</h2>
+    <div id="auth_login">
+      <div class="sm muted" style="margin-bottom:8px">Connexion</div>
+      <input id="login_email" placeholder="email" style="width:100%;margin-bottom:6px">
+      <input id="login_pw" type="password" placeholder="mot de passe" style="width:100%;margin-bottom:8px" onkeydown="if(event.key==='Enter')doLogin()">
+      <button onclick="doLogin()" style="width:100%">Se connecter</button>
+      <button id="sso_btn" onclick="location.href='/auth/sso/start'" style="width:100%;margin-top:8px;display:none">🔐 Se connecter avec le SSO</button>
+      <div id="login_err" class="sm" style="color:#dc2626;margin-top:6px"></div>
+    </div>
+    <div id="auth_setup" style="display:none">
+      <div class="sm muted" style="margin-bottom:8px">Premier démarrage — crée le compte administrateur :</div>
+      <input id="setup_name" placeholder="ton nom" style="width:100%;margin-bottom:6px">
+      <input id="setup_email" placeholder="email" style="width:100%;margin-bottom:6px">
+      <input id="setup_pw" type="password" placeholder="mot de passe" style="width:100%;margin-bottom:8px">
+      <button onclick="doSetup()" style="width:100%">Créer l'admin &amp; entrer</button>
+      <div id="setup_err" class="sm" style="color:#dc2626;margin-top:6px"></div>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div id="banner" style="grid-column:1/-1"></div>
+
+  <section class="card full">
+    <h2>Chat</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <select id="sess_select" onchange="if(this.value)openSession(this.value)" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px;max-width:240px"></select>
+      <span id="sess_scope" class="pill"></span>
+      <button class="ghost sm" style="padding:5px 10px" onclick="newSession('perso')">+ Nouvelle</button>
+      <span style="flex:1"></span>
+      <span class="sm muted">agent :</span>
+      <select id="agent_select" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px"></select>
+    </div>
+    <div id="chat" style="min-height:130px;max-height:360px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px"></div>
+    <div class="tool" style="margin-top:10px;gap:8px">
+      <input id="chat_in" placeholder="Écris un message à l'agent…" onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()">Envoyer</button>
+    </div>
+  </section>
+
+  <section class="card full">
+    <h2>Sessions</h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <input id="new_sess_title" placeholder="titre de la session" style="max-width:220px">
+      <select id="new_sess_scope" onchange="document.getElementById('new_sess_proj').style.display=this.value==='projet'?'':'none'" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px">
+        <option value="perso">perso (privée)</option>
+        <option value="projet">projet (partagée)</option>
+      </select>
+      <select id="new_sess_proj" style="display:none;background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px"></select>
+      <button class="ghost sm" style="padding:5px 10px" onclick="createSessionFromForm()">Créer</button>
+      <span style="flex:1"></span>
+      <label class="sm muted" style="display:flex;align-items:center;gap:5px"><input type="checkbox" id="show_archived" onchange="loadSessions()"> voir archivées</label>
+    </div>
+    <div id="sessions"><span class="muted sm">…</span></div>
+    <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="sm muted" style="margin-bottom:6px">Projets / workspaces (pour les sessions partagées)</div>
+      <div id="projects" class="sm" style="margin-bottom:8px"></div>
+      <input id="new_proj_name" placeholder="nom du projet" style="max-width:200px;margin-right:6px">
+      <button class="ghost sm" style="padding:5px 10px" onclick="createProject()">+ Projet</button>
+    </div>
+  </section>
+
+  <section class="card full" id="admin_card" style="display:none">
+    <h2>Administration — équipes &amp; comptes</h2>
+    <p class="sm muted">Crée des équipes (chacune avec un rôle), des comptes, et assigne les utilisateurs aux équipes. Les droits de chacun découlent du rôle de ses équipes.</p>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px">
+        <div class="sm muted" style="margin-bottom:6px">Équipes</div>
+        <div id="teams_list" class="sm"></div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input id="team_name" placeholder="nom (ex : Comm, IT)" style="max-width:150px">
+          <select id="team_role" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px"></select>
+          <button class="ghost sm" style="padding:5px 10px" onclick="createTeam()">+ Équipe</button>
+        </div>
+      </div>
+      <div style="flex:1;min-width:260px">
+        <div class="sm muted" style="margin-bottom:6px">Comptes</div>
+        <div id="accounts_list" class="sm"></div>
+        <div style="margin-top:8px;display:grid;gap:5px;max-width:280px">
+          <input id="acc_name" placeholder="nom">
+          <input id="acc_email" placeholder="email">
+          <input id="acc_pw" type="password" placeholder="mot de passe">
+          <div id="acc_teams" class="sm muted"></div>
+          <button class="ghost sm" style="padding:5px 10px" onclick="createAccount()">+ Compte</button>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="sm muted" style="margin-bottom:6px">Rôles &amp; capacités — compose chaque rôle case par case ; assigne-le aux équipes.</div>
+      <div id="roles_admin"></div>
+    </div>
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="sm muted" style="margin-bottom:6px">Contexte de l'entreprise (onboarding) — injecté en lecture seule dans tous les agents ; les chats ne peuvent pas le modifier.</div>
+      <textarea id="company_md" rows="6" placeholder="# Vanille Désire&#10;Activité, ton, produits, règles internes, contacts clés… Ce texte donne le contexte de l'entreprise à tous les agents." style="width:100%;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+      <button class="ghost sm" style="padding:5px 10px;margin-top:5px" onclick="saveCompany()">Enregistrer le contexte</button>
+    </div>
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="sm muted" style="margin-bottom:6px">SSO (OpenID Connect) — Google, Microsoft, Authentik…</div>
+      <div style="display:grid;gap:5px;max-width:540px">
+        <label class="sm"><input type="checkbox" id="sso_enabled"> activer le SSO</label>
+        <input id="sso_issuer" placeholder="issuer (ex : https://accounts.google.com)">
+        <input id="sso_client" placeholder="client_id">
+        <input id="sso_secret" type="password" placeholder="client_secret">
+        <input id="sso_scopes" placeholder="scopes (défaut : openid email profile)">
+        <label class="sm"><input type="checkbox" id="sso_provision"> provisionner automatiquement les nouveaux utilisateurs SSO</label>
+        <div class="sm">équipe par défaut (provisioning) : <select id="sso_team" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:5px;font-size:12px"></select></div>
+        <div class="sm muted" id="sso_redirect"></div>
+        <button class="ghost sm" style="padding:5px 10px;max-width:170px" onclick="saveSso()">Enregistrer le SSO</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card full">
+    <h2>Agents (orchestre)</h2>
+    <p class="sm muted">L'orchestrateur reçoit ta demande et délègue aux agents spécialisés si besoin.</p>
+    <div id="agents_list" class="sm"><span class="muted">…</span></div>
+    <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="ag_name" placeholder="nom de l'agent" style="max-width:160px">
+      <input id="ag_instr" placeholder="instructions / rôle de l'agent" style="flex:1;min-width:200px">
+      <select id="ag_autonomy" title="autonomie" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px">
+        <option value="ask">✋ validation</option>
+        <option value="auto">⚡ auto</option>
+      </select>
+      <button class="ghost sm" data-cap="agent.manage" style="padding:5px 10px" onclick="createAgent()">+ Agent</button>
+    </div>
+  </section>
+
+  <section class="card full">
+    <h2>Planificateur</h2>
+    <p class="sm muted">Lance un agent ou un flow automatiquement (chaque jour, toutes les N minutes, ou via une expression cron).</p>
+    <div id="schedules_list" class="sm"><span class="muted">…</span></div>
+    <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="sc_name" placeholder="nom" style="max-width:130px">
+      <input id="sc_prompt" placeholder="objectif (ex : résume la journée et liste les priorités)" style="flex:1;min-width:220px">
+      <select id="sc_kind" onchange="schedKind(this.value)" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px">
+        <option value="daily">chaque jour à</option>
+        <option value="interval">toutes les N min</option>
+        <option value="cron">cron</option>
+      </select>
+      <input id="sc_at" type="time" value="09:00" style="max-width:120px">
+      <input id="sc_min" type="number" value="60" min="1" style="max-width:80px;display:none">
+      <input id="sc_cron" placeholder="*/5 * * * *" title="min  h  jour  mois  jour-semaine" style="max-width:150px;display:none">
+      <button class="ghost sm" data-cap="schedule.manage" style="padding:5px 10px" onclick="createSchedule()">+ Tâche</button>
+    </div>
+  </section>
+
+  <section class="card full">
+    <h2>Flows (workflows)</h2>
+    <p class="sm muted">Éditeur façon Windmill : canvas glisser-déposer, étapes IA / outil MCP / code Python / boucles / branches / approbation. Référence les sorties via <code>{{ flow_input.x }}</code> et <code>{{ results.idEtape }}</code>. Déclenche à la main, par webhook ou par planif.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <select id="flow_select" onchange="openFlow(this.value)" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px;max-width:240px"></select>
+      <input id="new_flow_name" placeholder="nom du nouveau flow" style="max-width:200px">
+      <button class="ghost sm" data-cap="flow.create" style="padding:5px 10px" onclick="createFlow()">+ Flow</button>
+      <button class="ghost sm" data-cap="flow.create" style="padding:5px 10px" onclick="generateFlow()" title="Décris un workflow en langage naturel, l'IA le construit">✨ Générer (IA)</button>
+    </div>
+    <div id="flow_editor"></div>
+  </section>
+
+  <section class="card full">
+    <h2>Tâches</h2>
+    <p class="sm muted">Suivi des tâches (flows, planifications) et de leur avancement — kanban.</p>
+    <div style="margin-bottom:8px"><button class="ghost sm" style="padding:5px 10px" onclick="loadTasks();loadAudit()">↻ Rafraîchir</button></div>
+    <div id="kanban" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"></div>
+    <details style="margin-top:12px">
+      <summary class="sm muted" style="cursor:pointer">Activité détaillée (qui a fait quoi, commandé par qui)</summary>
+      <div id="audit" class="sm" style="margin-top:8px"></div>
+    </details>
+  </section>
+
+  <section class="card full">
+    <h2>Observabilité &amp; coûts</h2>
+    <p class="sm muted">Usage des modèles, activité et exécutions. <span id="obs_scope"></span></p>
+    <div style="margin-bottom:8px"><button class="ghost sm" style="padding:5px 10px" onclick="loadObs()">↻ Rafraîchir</button></div>
+    <div id="obs"><span class="muted sm">…</span></div>
+  </section>
+
+  <section class="card full">
+    <h2>Auto-tests</h2>
+    <div id="tests"><span class="muted">Lancement…</span></div>
+  </section>
+
+  <section class="card full">
+    <h2>Providers (LLM)</h2>
+    <div id="providers"><span class="muted">…</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Serveurs MCP (connecteurs)</h2>
+    <p class="sm muted">Aucune intégration codée dans le cœur : tout passe par des serveurs MCP. Ajoute le tien (OAuth géré).</p>
+    <div id="servers"><span class="muted">…</span></div>
+    <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="sm muted" style="margin-bottom:6px">Ajouter un serveur MCP — OAuth automatique si le serveur l'exige</div>
+      <input id="ns_name" placeholder="nom (ex : Mon CRM)" style="margin-bottom:6px">
+      <input id="ns_url" placeholder="https://serveur-mcp/endpoint" style="margin-bottom:6px">
+      <div class="sm" style="margin-bottom:6px">connexion :
+        <select id="ns_scope" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:5px;font-size:12px">
+          <option value="shared">partagée (compte commun, gérée par admin)</option>
+          <option value="personal">personnelle (chacun connecte la sienne)</option>
+        </select></div>
+      <button onclick="addServer()">Ajouter</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Skills</h2>
+    <p class="sm muted">Du savoir-faire packagé (SKILL.md) qui s'appuie sur des outils MCP. On en ajoute en déposant un dossier.</p>
+    <div id="skills"><span class="muted">…</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Fichiers</h2>
+    <p class="sm muted">Espace scopé (perso/projet). Lisibles/modifiables par les agents et les flows selon tes droits.</p>
+    <div id="files_list" class="sm"><span class="muted">…</span></div>
+    <div data-cap="file.write" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="file_up" style="font-size:12px;max-width:200px">
+      <select id="file_scope" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:5px;font-size:12px">
+        <option value="perso">perso</option><option value="projet">projet</option>
+      </select>
+      <button class="ghost sm" style="padding:5px 10px" onclick="uploadFile()">Déposer</button>
+    </div>
+  </section>
+
+  <section class="card full">
+    <h2>Lancer un outil MCP</h2>
+    <div class="tool"><span>Serveur</span> <input id="t_srv" value="example" style="max-width:220px">
+      <span>Outil</span> <input id="t_tool" value="list_inactive_customers" style="max-width:240px">
+      <button onclick="callTool()">Exécuter</button></div>
+    <div class="sm muted" style="margin:6px 0">Arguments (JSON)</div>
+    <textarea id="t_args" rows="2">{"days": 90}</textarea>
+    <pre id="t_out" style="margin-top:12px">—</pre>
+  </section>
+
+  <section class="card full">
+    <h2>Mémoire</h2>
+    <div class="tool" style="gap:8px"><input id="m_q" placeholder="rechercher dans la mémoire…">
+      <button class="ghost" onclick="searchMem()">Chercher</button>
+      <button class="ghost" style="color:#dc2626;border-color:#fecaca" onclick="resetMem()">Réinitialiser</button></div>
+    <div id="memory" class="sm" style="margin-top:10px"><span class="muted">—</span></div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => (s??"").toString().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+let CU="00000000-0000-0000-0000-0000000000a1";  // identité courante (= utilisateur authentifié)
+let TOKEN=localStorage.getItem('elytras_token')||"";
+function _hdr(extra){const h=Object.assign({},extra||{}); if(TOKEN)h['X-Elytras-Token']=TOKEN; return h;}
+async function _j(r){ if(r.status===403){banner('Action non autorisée — droits insuffisants pour ton rôle.','ko'); return {error:'forbidden',status:403};} try{return await r.json();}catch(e){return {error:'réponse invalide'}} }
+async function jget(u){u+=(u.includes('?')?'&':'?')+'user_id='+encodeURIComponent(CU);return _j(await fetch(u,{headers:_hdr()}))}
+async function jpost(u,b){return _j(await fetch(u,{method:'POST',headers:_hdr({'content-type':'application/json'}),body:JSON.stringify(Object.assign({user_id:CU},b||{}))}))}
+async function jpatch(u,b){return _j(await fetch(u,{method:'PATCH',headers:_hdr({'content-type':'application/json'}),body:JSON.stringify(Object.assign({user_id:CU},b||{}))}))}
+async function jdel(u){u+=(u.includes('?')?'&':'?')+'user_id='+encodeURIComponent(CU);return _j(await fetch(u,{method:'DELETE',headers:_hdr()}))}
+
+// ── Authentification & RBAC (UI) ──
+async function gateAuth(){
+  let me={}; if(TOKEN){ try{ me=await (await fetch('/auth/me',{headers:_hdr()})).json(); }catch(e){} }
+  window._caps=me.caps||[]; window._me=me;
+  if(TOKEN && window._caps.length>0){ CU=me.id||CU; showApp(me); return; }   // jeton valide → entre
+  TOKEN=''; localStorage.removeItem('elytras_token');
+  let sn={needed:false}; try{ sn=await (await fetch('/auth/setup-needed')).json(); }catch(e){}
+  const ov=$('#auth_overlay'); ov.style.display='flex';
+  $('#auth_setup').style.display=sn.needed?'':'none';        // 1er démarrage : créer l'admin
+  $('#auth_login').style.display=sn.needed?'none':'';        // sinon : connexion
+  if(!sn.needed){ try{ const sc=await (await fetch('/auth/sso/config-public')).json(); if($('#sso_btn')) $('#sso_btn').style.display=sc.enabled?'':'none'; }catch(e){} }
+}
+function showApp(me){
+  $('#auth_overlay').style.display='none';
+  $('#me_name').textContent=me.name||'—';
+  $('#me_role').textContent=(me.teams&&me.teams.length)?me.teams.map(t=>t.name+' · '+t.role).join(', '):(me.is_admin?'admin (local)':'—');
+  $('#logout_btn').style.display=TOKEN?'':'none';
+  if($('#tg_btn')) $('#tg_btn').style.display=TOKEN?'':'none';
+  applyCaps(); initApp();
+}
+async function doLogin(){
+  const d=await (await fetch('/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:$('#login_email').value,password:$('#login_pw').value})})).json();
+  if(d.error||!d.token){$('#login_err').textContent='Email ou mot de passe invalide.';return}
+  TOKEN=d.token; localStorage.setItem('elytras_token',TOKEN); $('#login_err').textContent=''; gateAuth();
+}
+async function doSetup(){
+  const d=await (await fetch('/auth/setup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:$('#setup_name').value,email:$('#setup_email').value,password:$('#setup_pw').value})})).json();
+  if(d.error||!d.token){$('#setup_err').textContent=d.error||'Erreur.';return}
+  TOKEN=d.token; localStorage.setItem('elytras_token',TOKEN); gateAuth();
+}
+async function logout(){ try{await fetch('/auth/logout',{method:'POST',headers:_hdr()});}catch(e){} TOKEN=''; localStorage.removeItem('elytras_token'); location.reload(); }
+function applyCaps(){
+  const caps=window._caps||[]; const has=c=>caps.includes(c)||caps.includes('admin');
+  document.querySelectorAll('[data-cap]').forEach(el=>{ el.style.display = has(el.getAttribute('data-cap'))?'':'none'; });
+  const adm=$('#admin_card'); if(adm) adm.style.display = has('admin')?'':'none';
+}
+// ── Administration ──
+async function loadAdmin(){
+  if(!(window._caps||[]).includes('admin'))return;
+  const rd=await jget('/admin/roles'); window._roles=rd.roles||[]; window._capsAll=rd.caps||[]; window._capLabels=rd.cap_labels||{};
+  const rsel=$('#team_role'); if(rsel) rsel.innerHTML=window._roles.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  if($('#roles_admin')) $('#roles_admin').innerHTML=rolesAdminHTML();
+  try{ const co=await jget('/company'); if($('#company_md')) $('#company_md').value=co.md||''; }catch(e){}
+  const teams=(await jget('/admin/teams')).teams||[]; window._teams=teams;
+  $('#teams_list').innerHTML=teams.map(t=>`<div class="row"><span class="dot ok"></span><b style="font-weight:500">${esc(t.name)}</b> <span class="pill">${esc(t.role)}</span> <a href="#" style="color:#dc2626" onclick="delTeam('${t.id}');return false">suppr</a></div>`).join('')||'<span class="muted">Aucune équipe.</span>';
+  $('#acc_teams').innerHTML='Équipes : '+(teams.map(t=>`<label style="margin-right:8px"><input type="checkbox" class="acct" value="${t.id}"> ${esc(t.name)}</label>`).join('')||'<span class="muted">crée d\'abord une équipe</span>');
+  const accs=(await jget('/admin/accounts')).accounts||[];
+  $('#accounts_list').innerHTML=accs.map(a=>`<div class="row"><b style="font-weight:500">${esc(a.name||'—')}</b> <span class="muted">${esc(a.email||'')}</span> <span class="pill">${(a.teams||[]).map(esc).join(', ')||'sans équipe'}</span>${a.active?'':' <span class="pill" style="color:#dc2626">désactivé</span>'}</div>`).join('')||'<span class="muted">Aucun compte.</span>';
+  // SSO
+  const sso=await jget('/admin/sso');
+  if($('#sso_enabled')){
+    $('#sso_enabled').checked=!!sso.enabled; $('#sso_issuer').value=sso.issuer||''; $('#sso_client').value=sso.client_id||'';
+    $('#sso_scopes').value=sso.scopes||''; $('#sso_provision').checked=!!sso.auto_provision;
+    if(sso.client_secret_set) $('#sso_secret').placeholder='client_secret (déjà défini — vide = inchangé)';
+    $('#sso_team').innerHTML='<option value="">—</option>'+teams.map(t=>`<option value="${t.id}" ${sso.default_team===t.id?'selected':''}>${esc(t.name)}</option>`).join('');
+    $('#sso_redirect').textContent='Redirect URI à déclarer chez le provider : '+location.origin+'/auth/sso/callback';
+  }
+}
+async function saveSso(){
+  const body={enabled:$('#sso_enabled').checked,issuer:$('#sso_issuer').value.trim(),client_id:$('#sso_client').value.trim(),
+    scopes:$('#sso_scopes').value.trim()||'openid email profile',auto_provision:$('#sso_provision').checked,default_team:$('#sso_team').value||null};
+  const sec=$('#sso_secret').value; if(sec)body.client_secret=sec;
+  const d=await jpost('/admin/sso',body); if(d.error){banner(d.error,'ko');return}
+  $('#sso_secret').value=''; banner('SSO enregistré.','ok'); loadAdmin();
+}
+function rolesAdminHTML(){
+  const caps=window._capsAll||[], L=window._capLabels||{};
+  const checks=(rid,rcaps,dis)=>caps.map(cp=>`<label class="sm" style="display:inline-block;min-width:215px"><input type="checkbox" class="rc_${rid}" value="${cp}" ${rcaps.includes(cp)?'checked':''} ${dis?'disabled':''}> ${esc(L[cp]||cp)}</label>`).join('');
+  const rows=(window._roles||[]).map(r=>`<div style="border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px">
+      <b>${esc(r.name)}</b> <span class="pill">${esc(r.id)}</span> ${r.builtin?'<span class="pill">base</span>':''} ${r.protected?'<span class="pill">protégé</span>':''}
+      <div style="margin-top:5px">${checks(r.id, r.caps||[], r.protected)}</div>
+      ${r.protected?'':`<div style="margin-top:5px"><button class="ghost sm" style="padding:4px 9px" onclick="saveRole('${r.id}')">Enregistrer</button>${r.builtin?'':` <a href="#" style="color:#dc2626;margin-left:8px" onclick="delRole('${r.id}');return false">supprimer</a>`}</div>`}
+    </div>`).join('');
+  const newChecks=caps.map(cp=>`<label class="sm" style="display:inline-block;min-width:215px"><input type="checkbox" class="rc_new" value="${cp}"> ${esc(L[cp]||cp)}</label>`).join('');
+  return rows+`<div style="border:1px dashed var(--line);border-radius:8px;padding:8px;margin-top:4px">
+      <input id="new_role_name" placeholder="nom du nouveau rôle (ex : Comm)" style="max-width:240px;margin-bottom:5px">
+      <div>${newChecks}</div>
+      <button class="ghost sm" style="padding:4px 9px;margin-top:5px" onclick="createRole()">+ Créer le rôle</button></div>`;
+}
+async function saveRole(rid){
+  const caps=[...document.querySelectorAll('.rc_'+rid+':checked')].map(x=>x.value);
+  const d=await jpatch('/admin/roles/'+rid,{caps}); if(d.error){banner(d.error,'ko');return}
+  banner('Rôle mis à jour.','ok'); loadAdmin();
+}
+async function delRole(rid){ if(!confirm('Supprimer ce rôle ?'))return; const d=await jdel('/admin/roles/'+rid); if(d.error){banner(d.error,'ko');return} banner('Rôle supprimé.','ok'); loadAdmin(); }
+async function createRole(){
+  const name=$('#new_role_name').value.trim(); if(!name){banner('Nom requis.','ko');return}
+  const caps=[...document.querySelectorAll('.rc_new:checked')].map(x=>x.value);
+  await jpost('/admin/roles',{name,caps}); banner('Rôle créé.','ok'); loadAdmin();
+}
+async function saveCompany(){ await jpost('/admin/company',{md:$('#company_md').value}); banner('Contexte entreprise enregistré.','ok'); }
+async function createTeam(){const n=$('#team_name').value.trim();if(!n){banner('Nom requis.','ko');return}await jpost('/admin/teams',{name:n,role:$('#team_role').value});$('#team_name').value='';loadAdmin();banner('Équipe créée.','ok');}
+async function delTeam(id){if(!confirm('Supprimer cette équipe ?'))return;await jdel('/admin/teams/'+id);loadAdmin();}
+async function createAccount(){
+  const tids=[...document.querySelectorAll('.acct:checked')].map(x=>x.value);
+  if(!$('#acc_email').value||!$('#acc_pw').value){banner('Email et mot de passe requis.','ko');return}
+  const d=await jpost('/admin/accounts',{name:$('#acc_name').value,email:$('#acc_email').value,password:$('#acc_pw').value,team_ids:tids});
+  if(d.error){banner(d.error,'ko');return}
+  $('#acc_name').value=$('#acc_email').value=$('#acc_pw').value=''; loadAdmin(); banner('Compte créé.','ok');
+}
+
+async function health(){
+  try{const h=await jget('/health');
+    $('#hstatus').innerHTML=`<span class="dot ${h.db==='ok'?'ok':'warn'}"></span>core ok · db ${h.db} · provider ${esc(h.provider)}`;
+  }catch(e){$('#hstatus').innerHTML='<span class="dot ko"></span>core injoignable'}
+}
+
+async function runTests(){
+  $('#tests').innerHTML='<span class="muted">Lancement…</span>';
+  const d=await jget('/selftest');
+  $('#tests').innerHTML = d.checks.map(c=>`<div class="row">
+      <span class="dot ${c.ok?'ok':'ko'}"></span><b>${esc(c.name)}</b>
+      <span class="det">${esc(c.detail)}</span></div>`).join('')
+    + `<div class="row"><span class="pill">${d.ok?'TOUT VERT':'des échecs (normal si Docker/Ollama pas lancés)'}</span><span class="det">${esc(d.at)}</span></div>`;
+}
+
+async function loadProviders(){
+  const d=await jget('/providers');
+  const rows=(d.providers||[]).map(p=>`<div class="row">
+      <span class="dot ${p.connected?'ok':'ko'}"></span><b>${esc(p.label)}</b>
+      ${p.connected
+        ? `<span class="det">connecté${p.account?(' · '+esc(p.account)):''}</span>`
+        : `<span class="det"><button class="ghost sm" style="padding:4px 10px" onclick="connectProvider('${esc(p.provider)}')">Se connecter</button></span>`}
+    </div>`).join('');
+  $('#providers').innerHTML = rows + `<div class="row"><span class="pill">actif</span>
+      <span class="det">provider ${esc(d.active.provider)}${d.active.model?(' · '+esc(d.active.model)):''}</span></div>`;
+}
+async function connectProvider(name){
+  const w=window.open('','_blank');
+  const d=await jpost('/providers/login',{provider:name});
+  if(d.error){if(w)w.close();banner(d.error,'ko');return}
+  if(w)w.location=d.auth_url; else window.location=d.auth_url;
+  banner('Autorise '+esc(name)+' dans l\'onglet ouvert, puis reviens ici.','ok');
+  setTimeout(loadProviders, 5000);
+}
+let serversById={};
+async function loadServers(){
+  const d=await jget('/mcp/servers');
+  serversById={}; (d.servers||[]).forEach(s=>serversById[s.id]=s); window._mcpTeams=d.teams||[];
+  $('#servers').innerHTML = (d.servers||[]).map(s=>{
+    const at=s.auth_type&&s.auth_type!=='none'?`<span class="pill">${esc(s.auth_type)}</span>`:'';
+    const scope=(s.conn_scope==='personal')?'personnelle':'partagée';
+    const acc = s.allow_all?'<span class="pill">accès : tous</span>'
+      :`<span class="pill">accès : ${(s.team_names||[]).map(esc).join(', ')||'admin'}</span>`;
+    let action='';
+    if(s.auth_type==='oauth') action = s.connected
+      ? `<span class="pill" style="color:#3ecf8e;border-color:#bbf7d0">connecté (${scope})</span>`
+      : `<button class="ghost sm" style="padding:5px 10px" onclick="connectOAuth('${esc(s.id)}')">Se connecter ${s.conn_scope==='personal'?'(mon compte)':'(commun)'}</button>`;
+    const edit = (s.source!=='env' && s.can_manage)
+      ? `<button class="ghost sm" style="padding:5px 10px" onclick="editServer('${esc(s.id)}')">Modifier</button>
+         <button class="ghost sm" style="padding:5px 10px" onclick="serverAccess('${esc(s.id)}')">Accès…</button>
+         <button class="ghost sm" style="padding:5px 10px;color:#dc2626;border-color:#fecaca" onclick="deleteServer('${esc(s.id)}')">Supprimer</button>`
+      : (s.source==='env'?'<span class="pill">démo</span>':'');
+    return `<div class="srv">
+      <b>${esc(s.name)}</b> <span class="pill">${esc(s.source)}</span> ${at} <span class="pill">${scope}</span> ${acc}
+      <div class="sm muted">${esc(s.url||s.transport)}</div>
+      <div id="tools_${esc(s.id)}"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <button class="ghost sm" style="padding:5px 10px" onclick="loadTools('${esc(s.id)}')">Voir les outils</button>
+        ${action} ${edit}
+      </div>
+      <div id="edit_${esc(s.id)}"></div>
+    </div>`;
+  }).join('') || '<span class="muted">Aucun serveur visible (selon tes droits).</span>';
+}
+function serverAccess(id){
+  const s=serversById[id]||{}, teams=window._mcpTeams||[];
+  $('#edit_'+id).innerHTML=`<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px">
+    <label class="sm"><input type="checkbox" id="sa_all_${id}" ${s.allow_all?'checked':''}> ouvert à tous les utilisateurs</label>
+    <div class="sm" style="margin-top:4px">équipes autorisées : ${teams.map(t=>`<label style="margin-right:8px"><input type="checkbox" class="sa_t_${id}" value="${t.id}" ${(s.allowed_teams||[]).includes(t.id)?'checked':''}> ${esc(t.name)}</label>`).join('')||'<span class="muted">aucune équipe — crée-en dans Administration</span>'}</div>
+    <div class="sm" style="margin-top:4px">connexion : <select id="sa_scope_${id}" style="${SELST}"><option value="shared" ${s.conn_scope!=='personal'?'selected':''}>partagée (compte commun, admin)</option><option value="personal" ${s.conn_scope==='personal'?'selected':''}>personnelle (chacun la sienne)</option></select></div>
+    <button class="ghost sm" style="padding:5px 10px;margin-top:6px" onclick="saveServerAccess('${id}')">Enregistrer l'accès</button>
+    <button class="ghost sm" style="padding:5px 10px" onclick="document.getElementById('edit_${id}').innerHTML=''">Annuler</button>
+  </div>`;
+}
+async function saveServerAccess(id){
+  const teams=[...document.querySelectorAll('.sa_t_'+id+':checked')].map(x=>x.value);
+  await jpatch('/mcp/servers/'+encodeURIComponent(id),{allow_all:$('#sa_all_'+id).checked,allowed_teams:teams,conn_scope:$('#sa_scope_'+id).value});
+  banner('Accès du serveur mis à jour.','ok'); loadServers();
+}
+async function deleteServer(id){
+  const s=serversById[id]||{};
+  if(!confirm('Supprimer le serveur MCP « '+(s.name||id)+' » ?'))return;
+  await jdel('/mcp/servers/'+encodeURIComponent(id));
+  banner('Serveur supprimé.','ok'); loadServers();
+}
+function editServer(id){
+  const s=serversById[id]||{};
+  $('#edit_'+id).innerHTML=`<div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px">
+    <input id="ed_name_${id}" value="${esc(s.name||'')}" style="margin-bottom:6px">
+    <input id="ed_url_${id}" value="${esc(s.url||'')}" style="margin-bottom:6px">
+    <button class="ghost sm" style="padding:5px 10px" onclick="saveServer('${id}')">Enregistrer</button>
+    <button class="ghost sm" style="padding:5px 10px" onclick="document.getElementById('edit_${id}').innerHTML=''">Annuler</button>
+  </div>`;
+}
+async function saveServer(id){
+  const name=$('#ed_name_'+id).value.trim(), url=$('#ed_url_'+id).value.trim();
+  const w=window.open('','_blank');
+  const d=await jpatch('/mcp/servers/'+encodeURIComponent(id),{name,url});
+  if(d.needs_oauth&&d.auth_url){ if(w)w.location=d.auth_url; else window.location=d.auth_url; banner('Modifié — autorise la connexion.','ok'); }
+  else { if(w)w.close(); banner(d.error?('Erreur : '+esc(d.error)):'Serveur modifié.', d.error?'ko':'ok'); }
+  loadServers();
+}
+async function addServer(){
+  const name=$('#ns_name').value.trim(), url=$('#ns_url').value.trim();
+  if(!name||!url){banner('Nom et URL requis.','ko');return}
+  const w=window.open('','_blank');   // pré-ouvert dans le geste utilisateur (évite le blocage popup)
+  const d=await jpost('/mcp/servers',{name,url,auth_type:'auto',conn_scope:($('#ns_scope')&&$('#ns_scope').value)||'shared'});
+  if(d.error){if(w)w.close();banner(d.error,'ko');return}
+  $('#ns_name').value='';$('#ns_url').value='';
+  if(d.needs_oauth && d.auth_url){
+    if(w)w.location=d.auth_url; else window.location=d.auth_url;
+    banner('Serveur ajouté — autorise la connexion dans l\'onglet ouvert.','ok'); setTimeout(loadServers,5000);
+  } else {
+    if(w)w.close();
+    if(d.needs_oauth) banner('Serveur ajouté, OAuth indisponible : '+esc(d.oauth_error||'?'),'ko');
+    else banner('Serveur ajouté.','ok');
+    loadServers();
+  }
+}
+
+let chatHistory=[];
+function renderChat(){
+  const el=$('#chat');
+  el.innerHTML = chatHistory.length ? chatHistory.map((m,i)=>{
+    const me=m.role==='user', pend=m.confirm && !m.resolved;
+    const extra = pend ? `<div style="margin-top:8px;display:flex;gap:6px">
+        <button class="sm" style="padding:4px 10px" onclick="confirmAction(${i},'approve')">✓ Approuver</button>
+        <button class="ghost sm" style="padding:4px 10px" onclick="confirmAction(${i},'reject')">✗ Refuser</button></div>` : '';
+    const bg = me?'#eef0fe':(m.confirm?'#fff7e6':'#f4f6f8');
+    const bd = pend?'#f0c879':'var(--line)';
+    const att = (m.attachments&&m.attachments.length)?`<div style="margin-top:6px">${m.attachments.map(a=>`📎 <a href="#" onclick="dlFile('${a.id}','${esc(a.name).replace(/'/g,"")}');return false">${esc(a.name)}</a>`).join(' · ')}</div>`:'';
+    return `<div style="align-self:${me?'flex-end':'flex-start'};max-width:82%;background:${bg};border:1px solid ${bd};border-radius:10px;padding:8px 11px;font-size:13px;white-space:pre-wrap;word-break:break-word">${esc(m.content)}${extra}${att}</div>`;
+  }).join('') : '<div class="muted sm">Discute avec l\'agent (provider actif). Connecte un provider d\'abord si besoin.</div>';
+  el.scrollTop=el.scrollHeight;
+}
+let currentSession=null;
+function _pushChatResult(d){
+  if(d.status==='confirm') chatHistory.push({role:'assistant',content:d.content,confirm:{pending_id:d.pending_id},attachments:d.attachments||[]});
+  else chatHistory.push({role:'assistant',content: d.error?('⚠️ '+d.error):(d.content||'(réponse vide)'),attachments:d.attachments||[]});
+}
+async function sendChat(){
+  const inp=$('#chat_in'), text=inp.value.trim(); if(!text)return;
+  if(!currentSession){ await newSession('perso', true); }
+  inp.value=''; chatHistory.push({role:'user',content:text});
+  chatHistory.push({role:'assistant',content:'…'}); renderChat();
+  const msgs=chatHistory.filter(m=>m.content!=='…'&&!m.confirm);
+  const d=await jpost('/chat',{messages:msgs, session_id: currentSession?currentSession.id:null,
+    agent_id: ($('#agent_select')&&$('#agent_select').value)||'orchestrateur'});
+  chatHistory.pop(); _pushChatResult(d);
+  renderChat(); loadSessions(); loadObs();
+}
+async function confirmAction(i,decision){
+  const m=chatHistory[i]; if(!m||!m.confirm||m.resolved)return;
+  m.resolved=true; m.content += decision==='approve'?'\n→ approuvé ✓':'\n→ refusé ✗';
+  chatHistory.push({role:'assistant',content:'…'}); renderChat();
+  const d=await jpost('/chat/confirm',{pending_id:m.confirm.pending_id,decision});
+  chatHistory.pop(); _pushChatResult(d);
+  renderChat(); loadTasks(); loadAudit();
+}
+async function loadSessions(){
+  const arch=$('#show_archived')&&$('#show_archived').checked;
+  const d=await jget('/sessions'+(arch?'?archived=true':''));
+  const list=d.sessions||[];
+  const sel=$('#sess_select');
+  const active=list.filter(s=>s.status!=='archived');
+  if(sel) sel.innerHTML='<option value="">— choisir une session —</option>'+active.map(s=>`<option value="${s.id}" ${currentSession&&currentSession.id===s.id?'selected':''}>${esc(s.title||'sans titre')}${s.scope==='projet'?' · projet':''}</option>`).join('');
+  $('#sessions').innerHTML=list.map(s=>`<div class="row">
+      <span class="dot ${s.scope==='projet'?'warn':'ok'}"></span>
+      <b style="font-weight:500">${esc(s.title||'sans titre')}</b>
+      <span class="pill">${s.scope}</span>${s.status==='archived'?' <span class="pill">archivée</span>':''}
+      <span class="det">${s.count} msg ·
+        <a href="#" onclick="openSession('${s.id}');return false">ouvrir</a> ·
+        <a href="#" onclick="archiveSession('${s.id}',${s.status!=='archived'});return false">${s.status==='archived'?'désarchiver':'archiver'}</a> ·
+        <a href="#" style="color:#dc2626" onclick="deleteSession('${s.id}');return false">suppr</a></span>
+    </div>`).join('')||'<span class="muted sm">Aucune session — écris un message ou crée-en une.</span>';
+}
+async function openSession(id){
+  const s=await jget('/sessions/'+id);
+  if(s.error){banner(s.error,'ko');return}
+  currentSession=s; chatHistory=(s.messages||[]).slice();
+  $('#sess_scope').textContent=s.scope==='projet'?'projet (partagée)':'perso';
+  renderChat(); const sel=$('#sess_select'); if(sel) sel.value=id;
+}
+async function newSession(scope, silent){
+  const d=await jpost('/sessions',{title:'Nouvelle session',scope:scope||'perso'});
+  if(d.error){banner(d.error,'ko');return}
+  currentSession=d; chatHistory=[];
+  $('#sess_scope').textContent=d.scope==='projet'?'projet (partagée)':'perso';
+  renderChat(); await loadSessions();
+  if(!silent) banner('Nouvelle session créée.','ok');
+}
+async function createSessionFromForm(){
+  const title=$('#new_sess_title').value.trim()||'Nouvelle session';
+  const scope=$('#new_sess_scope').value;
+  const project_id=scope==='projet'?($('#new_sess_proj').value||null):null;
+  if(scope==='projet'&&!project_id){banner('Choisis (ou crée) un projet d\'abord.','ko');return}
+  const d=await jpost('/sessions',{title,scope,project_id});
+  if(d.error){banner(d.error,'ko');return}
+  $('#new_sess_title').value=''; currentSession=d; chatHistory=[];
+  $('#sess_scope').textContent=d.scope==='projet'?'projet (partagée)':'perso';
+  renderChat(); await loadSessions(); banner('Session créée.','ok');
+}
+async function archiveSession(id,arch){
+  await jpatch('/sessions/'+id,{status:arch?'archived':'active'});
+  loadSessions();
+}
+async function deleteSession(id){
+  if(!confirm('Supprimer cette session ?'))return;
+  await jdel('/sessions/'+id);
+  if(currentSession&&currentSession.id===id){currentSession=null;chatHistory=[];$('#sess_scope').textContent='';renderChat();}
+  loadSessions();
+}
+let allUsers=[];
+function uname(id){const u=allUsers.find(x=>x.id===id);return u?u.name:(id||'').slice(0,6)}
+async function loadUsers(){
+  const d=await jget('/users'); allUsers=d.users||[];
+  const sel=$('#user_select');
+  if(sel) sel.innerHTML=allUsers.map(u=>`<option value="${u.id}" ${u.id===CU?'selected':''}>${esc(u.name||u.id)}</option>`).join('');
+}
+async function createUser(){
+  const name=prompt('Nom du nouvel utilisateur (test) :'); if(!name)return;
+  await jpost('/users',{name}); await loadUsers(); loadProjects(); banner('Utilisateur créé.','ok');
+}
+function switchUser(uid){
+  CU=uid; currentSession=null; chatHistory=[]; renderChat();
+  if($('#sess_scope'))$('#sess_scope').textContent='';
+  banner('Vue en tant que : '+esc(uname(uid)),'ok');
+  loadSessions(); loadProjects(); loadProviders(); loadServers(); loadSchedules(); loadAudit(); loadFlows(); loadTasks();
+}
+async function loadProjects(){
+  if(!allUsers.length) await loadUsers();
+  const d=await jget('/projects'); const ps=d.projects||[];
+  $('#projects').innerHTML=ps.map(p=>{
+    const others=allUsers.filter(u=>!(p.members||[]).includes(u.id));
+    return `<div style="margin-bottom:6px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:#f1f3f6">
+      <b style="font-weight:500">${esc(p.name)}</b>
+      <span class="muted"> · membres : ${(p.members||[]).map(m=>esc(uname(m))).join(', ')||'—'}</span>
+      ${others.length?`<div style="margin-top:5px">
+        <select id="addm_${p.id}" style="background:#ffffff;border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:4px 7px;font-size:12px">${others.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>
+        <a href="#" style="margin-left:6px" onclick="addMember('${p.id}');return false">+ membre</a></div>`:''}
+    </div>`;
+  }).join('')||'<span class="muted">aucun projet</span>';
+  const sel=$('#new_sess_proj'); if(sel) sel.innerHTML=ps.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+}
+async function addMember(pid){
+  const sel=$('#addm_'+pid); const mid=sel&&sel.value; if(!mid)return;
+  await jpost('/projects/'+pid+'/members',{member_id:mid}); loadProjects(); banner('Membre ajouté.','ok');
+}
+async function loadAgents(){
+  const d=await jget('/agents'); const ags=d.agents||[]; window._agents=ags;
+  const sel=$('#agent_select');
+  if(sel){const cur=sel.value; sel.innerHTML=ags.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join(''); if(cur)sel.value=cur;}
+  $('#agents_list').innerHTML=ags.map(a=>{
+    const auto=(a.autonomy==='auto');
+    const badge=`<span class="pill" title="${auto?'agit sans demander':'demande validation avant les actions sensibles'}" style="${auto?'color:#b45309':'color:#3ecf8e'}">${auto?'⚡ auto':'✋ validation'}</span>`;
+    const toggle=`<a href="#" onclick="toggleAutonomy('${a.id}','${auto?'ask':'auto'}');return false">${auto?'exiger validation':'passer en auto'}</a>`;
+    const bot=a.has_bot?'<span class="pill" style="color:#3ecf8e">🤖 Telegram</span>':'';
+    const botcfg=(window._caps||[]).includes('agent.manage')?` · <a href="#" onclick="setBot('${a.id}',${a.has_bot?'true':'false'});return false">${a.has_bot?'bot ✎':'+ bot Telegram'}</a>`:'';
+    return `<div class="row">
+      <b style="font-weight:500">${esc(a.name)}</b> ${a.role?`<span class="pill">${esc(a.role)}</span>`:''} ${badge} ${bot}
+      <span class="det">${esc((a.instructions||'').slice(0,70))} · ${toggle}${botcfg} ${a.builtin?'':'· <a href="#" style="color:#dc2626" onclick="deleteAgent(\''+a.id+'\');return false">suppr</a>'}</span>
+    </div>`;}).join('');
+}
+async function toggleAutonomy(id,mode){ await jpatch('/agents/'+id,{autonomy:mode}); loadAgents(); banner('Autonomie : '+(mode==='auto'?'auto (agit sans demander)':'validation requise'),'ok'); }
+async function setBot(id,has){
+  const t=prompt(has?'Nouveau token du bot Telegram (laisser vide = retirer le bot) :':'Token du bot Telegram (créé via @BotFather) :','');
+  if(t===null)return; await jpatch('/agents/'+id,{telegram_token:t.trim()}); banner(t.trim()?'Bot Telegram configuré.':'Bot retiré.','ok'); loadAgents();
+}
+async function setMyTelegram(){
+  const cur=(window._me&&window._me.telegram_id)||'';
+  const v=prompt('Ton identifiant Telegram numérique (obtiens-le via @userinfobot, ou écris à ton bot) — il sert à router tes messages en gardant ton périmètre :',cur);
+  if(v===null)return; await jpost('/me/telegram',{telegram_id:v.trim()}); if(window._me)window._me.telegram_id=v.trim(); banner('Telegram lié à ton compte.','ok');
+}
+async function createAgent(){
+  const name=$('#ag_name').value.trim(); if(!name){banner('Nom requis.','ko');return}
+  await jpost('/agents',{name,instructions:$('#ag_instr').value.trim(),autonomy:($('#ag_autonomy')&&$('#ag_autonomy').value)||'ask'});
+  $('#ag_name').value='';$('#ag_instr').value=''; loadAgents(); banner('Agent créé.','ok');
+}
+async function deleteAgent(id){ if(!confirm('Supprimer cet agent ?'))return; await jdel('/agents/'+id); loadAgents(); }
+async function loadSchedules(){
+  const d=await jget('/schedules'); const ss=d.schedules||[];
+  $('#schedules_list').innerHTML=ss.map(s=>`<div class="row">
+      <span class="dot ${s.enabled?'ok':'ko'}"></span><b style="font-weight:500">${esc(s.name)}</b>
+      <span class="pill">${s.kind==='daily'?('chaque jour '+esc(s.at||'')):s.kind==='cron'?('cron '+esc(s.cron||'')):('toutes les '+s.every_min+' min')}</span>
+      <span class="det">${s.last_result?('« '+esc(s.last_result.slice(0,40))+'… » ·'):''}
+        <a href="#" onclick="runSchedule('${s.id}');return false">exécuter</a> ·
+        <a href="#" onclick="toggleSchedule('${s.id}',${!s.enabled});return false">${s.enabled?'désactiver':'activer'}</a> ·
+        <a href="#" style="color:#dc2626" onclick="deleteSchedule('${s.id}');return false">suppr</a></span>
+    </div>`).join('')||'<span class="muted">Aucune tâche planifiée.</span>';
+}
+function schedKind(v){ $('#sc_at').style.display=v==='daily'?'':'none'; $('#sc_min').style.display=v==='interval'?'':'none'; $('#sc_cron').style.display=v==='cron'?'':'none'; }
+async function createSchedule(){
+  const name=$('#sc_name').value.trim(), prompt=$('#sc_prompt').value.trim();
+  if(!name||!prompt){banner('Nom et objectif requis.','ko');return}
+  const agent=($('#agent_select')&&$('#agent_select').value)||'orchestrateur';
+  await jpost('/schedules',{name,prompt,kind:$('#sc_kind').value,at:$('#sc_at').value,
+    every_min:parseInt($('#sc_min').value||'60'),cron:($('#sc_cron')?$('#sc_cron').value:''),agent_id:agent,
+    scope:(currentSession&&currentSession.scope)||'perso',project_id:(currentSession&&currentSession.project_id)||null});
+  $('#sc_name').value='';$('#sc_prompt').value=''; loadSchedules(); banner('Tâche planifiée.','ok');
+}
+async function runSchedule(id){ banner('Exécution en cours…','ok'); await jpost('/schedules/'+id+'/run',{}); loadSchedules(); loadAudit(); banner('Tâche exécutée.','ok'); }
+async function toggleSchedule(id,en){ await jpatch('/schedules/'+id,{enabled:en}); loadSchedules(); }
+async function deleteSchedule(id){ if(!confirm('Supprimer cette tâche ?'))return; await jdel('/schedules/'+id); loadSchedules(); }
+async function loadAudit(){
+  const d=await jget('/audit'); const ev=d.events||[];
+  const byId={}; ev.forEach(e=>byId[e.id]=e);
+  const depthOf=e=>{let n=0,p=e.parent_id,g=0;while(p&&byId[p]&&g++<6){n++;p=byId[p].parent_id;}return n;};
+  const lbl={chat:'chat',delegate:'délègue →',tool:'outil',skill:'skill',schedule:'planifié'};
+  $('#audit').innerHTML=ev.map(e=>{
+    const when=new Date((e.ts||0)*1000).toLocaleTimeString();
+    return `<div class="row" style="padding:4px 0;margin-left:${depthOf(e)*20}px">
+      <span class="pill">${esc(lbl[e.action]||e.action)}</span> <b style="font-weight:500">${esc(e.agent||'')}</b>
+      <span class="det">${esc(e.initiator||'')} ${esc((e.detail||'').slice(0,60))} · ${when}</span></div>`;
+  }).join('')||'<span class="muted">Aucune activité pour l\'instant.</span>';
+}
+
+// ── Flows : éditeur canvas façon Windmill ──
+let currentFlow=null, flowPath=[], selNode=null, lastResults={}, flowPanel=null;
+const NODE_W=190, NODE_H=54;
+const SELST='background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:5px;font-size:12px';
+const CONTAINERS=['forloop','whileloop','branchone','branchall'];
+const TYPE_META={agent:{icon:'🤖',label:'Agent IA',color:'#7c5cff'},tool:{icon:'🔧',label:'Outil MCP',color:'#3a7afe'},
+ code:{icon:'🐍',label:'Code',color:'#2ea043'},note:{icon:'📝',label:'Note',color:'#667085'},
+ forloop:{icon:'⟳',label:'Boucle for',color:'#d29922'},whileloop:{icon:'↻',label:'Boucle while',color:'#d29922'},
+ branchone:{icon:'⑂',label:'Branche (one)',color:'#bf5af2'},branchall:{icon:'⑂',label:'Branches (all)',color:'#bf5af2'},
+ approval:{icon:'✋',label:'Approbation',color:'#e0533d'}};
+
+async function loadFlows(){
+  const d=await jget('/flows'); const fs=d.flows||[];
+  const sel=$('#flow_select');
+  if(sel) sel.innerHTML='<option value="">— choisir un flow —</option>'+fs.map(f=>`<option value="${f.id}" ${currentFlow&&currentFlow.id===f.id?'selected':''}>${esc(f.name)}</option>`).join('');
+}
+async function createFlow(){
+  const name=$('#new_flow_name').value.trim()||'Nouveau flow';
+  const d=await jpost('/flows',{name, scope:(currentSession&&currentSession.scope)||'perso', project_id:(currentSession&&currentSession.project_id)||null});
+  $('#new_flow_name').value=''; await loadFlows(); openFlow(d.id); banner('Flow créé.','ok');
+}
+async function generateFlow(){
+  const p=prompt('Décris le workflow à créer (en langage naturel) :','');
+  if(p===null||!p.trim())return;
+  banner('Génération du flow par IA…','ok');
+  const d=await jpost('/flows/generate',{prompt:p.trim(), scope:(currentSession&&currentSession.scope)||'perso', project_id:(currentSession&&currentSession.project_id)||null});
+  if(d.error){banner(d.error,'ko');return}
+  await loadFlows(); openFlow(d.id); banner('Flow généré ✓ — vérifie et ajuste avant d\'exécuter.','ok');
+}
+async function editFlowAI(){
+  if(!currentFlow)return;
+  const ins=prompt('Quelle modification veux-tu appliquer à ce flow ? (ex : « ajoute une étape de validation avant l\'envoi », « passe la boucle en parallèle »)','');
+  if(ins===null||!ins.trim())return;
+  await saveFlow();
+  banner('Modification du flow par IA…','ok');
+  const d=await jpost('/flows/'+currentFlow.id+'/edit-ai',{instruction:ins.trim()});
+  if(d.error){banner(d.error,'ko');return}
+  currentFlow=d; flowPath=[]; selNode=null; renderFlow();
+  banner('Flow modifié ✓ — vérifie le résultat avant d\'exécuter.','ok');
+}
+async function openFlow(fid){
+  if(!fid){currentFlow=null;$('#flow_editor').innerHTML='';return}
+  currentFlow=await jget('/flows/'+fid); flowPath=[]; selNode=null; lastResults={}; flowPanel=null;
+  if($('#flow_select')) $('#flow_select').value=fid;
+  renderFlow();
+}
+
+// — navigation dans les conteneurs (boucles / branches) —
+function levelModules(){
+  let mods=currentFlow.modules;
+  for(const seg of flowPath){ const m=mods.find(x=>x.id===seg.mid); if(!m)break;
+    if(m.type==='forloop'||m.type==='whileloop') mods=m.modules;
+    else if(m.type==='branchone') mods=seg.bi==='default'?m.default_modules:(m.branches[seg.bi]||{}).modules;
+    else if(m.type==='branchall') mods=(m.branches[seg.bi]||{}).modules; }
+  return mods||[];
+}
+function lastContainer(){
+  if(!flowPath.length)return null;
+  let mods=currentFlow.modules,m=null;
+  for(const seg of flowPath){ m=mods.find(x=>x.id===seg.mid); if(!m)break;
+    if(m.type==='forloop'||m.type==='whileloop') mods=m.modules;
+    else if(m.type==='branchone') mods=seg.bi==='default'?m.default_modules:m.branches[seg.bi].modules;
+    else if(m.type==='branchall') mods=m.branches[seg.bi].modules; }
+  return m;
+}
+function findModule(id){ return id?levelModules().find(x=>x.id===id):null; }
+function navTo(k){ flowPath=flowPath.slice(0,k); selNode=null; renderFlow(); }
+function breadcrumb(){
+  let mods=currentFlow.modules, parts=[`<a href="#" onclick="navTo(0);return false">${esc(currentFlow.name)}</a>`];
+  for(let i=0;i<flowPath.length;i++){ const seg=flowPath[i]; const m=mods.find(x=>x.id===seg.mid); if(!m)break;
+    let lbl=esc(m.summary);
+    if(m.type==='branchone') lbl+=' › '+(seg.bi==='default'?'défaut':esc((m.branches[seg.bi]||{}).summary||('branche '+(seg.bi+1))));
+    else if(m.type==='branchall') lbl+=' › '+esc((m.branches[seg.bi]||{}).summary||('branche '+(seg.bi+1)));
+    parts.push(`<a href="#" onclick="navTo(${i+1});return false">${lbl}</a>`);
+    if(m.type==='forloop'||m.type==='whileloop') mods=m.modules;
+    else if(m.type==='branchone') mods=seg.bi==='default'?m.default_modules:m.branches[seg.bi].modules;
+    else if(m.type==='branchall') mods=m.branches[seg.bi].modules; }
+  return parts.join(' <span style="color:#555">›</span> ');
+}
+
+// — positions canvas —
+function nodePos(m,i){ const pos=(currentFlow.ui&&currentFlow.ui.pos)||{}; return pos[m.id]||{x:40,y:30+i*86}; }
+function setPos(id,x,y){ currentFlow.ui=currentFlow.ui||{pos:{}}; currentFlow.ui.pos=currentFlow.ui.pos||{}; currentFlow.ui.pos[id]={x,y}; }
+
+function renderFlow(){
+  const f=currentFlow; if(!f){$('#flow_editor').innerHTML='';return}
+  const mods=levelModules();
+  let maxY=160; mods.forEach((m,i)=>{const p=nodePos(m,i); maxY=Math.max(maxY,p.y+NODE_H+40);});
+  const H=Math.max(380,maxY);
+  const palette=['agent','tool','code','note','forloop','whileloop','branchone','branchall']
+    .map(t=>`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('${t}')">+ ${TYPE_META[t].icon} ${TYPE_META[t].label}</button>`).join('');
+  $('#flow_editor').innerHTML=`
+   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+     <input value="${esc(f.name)}" onchange="currentFlow.name=this.value" style="max-width:220px;font-weight:600">
+     <button onclick="saveFlow()">💾 Enregistrer</button>
+     <button class="ghost sm" onclick="editFlowAI()" title="Décris une modification, l'IA l'applique">✨ Modifier (IA)</button>
+     <button class="ghost sm" onclick="toggleFlowPanel('inputs')">⌨ Entrées (${(f.inputs||[]).length})</button>
+     <button class="ghost sm" onclick="toggleFlowPanel('triggers')">⚡ Déclencheurs</button>
+     <span style="flex:1"></span>
+     <a href="#" style="color:#dc2626" onclick="deleteFlow();return false">supprimer</a>
+   </div>
+   <div class="sm muted" style="margin-bottom:6px">${breadcrumb()}</div>
+   <div id="flow_panel"></div>
+   <div style="display:flex;gap:10px;align-items:flex-start">
+     <div style="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;background:#ffffff;overflow:auto;max-height:540px">
+       <svg id="flow_svg" width="100%" height="${H}" style="display:block;min-width:520px">
+         <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b6bcc6"/></marker></defs>
+         ${edgesSVG(mods)}
+         ${mods.map((m,i)=>nodeSVG(m,i)).join('')}
+         ${mods.length?'':'<text x="28" y="40" fill="#666" font-size="13">Canvas vide — ajoute une étape ci-dessous ↓</text>'}
+       </svg>
+     </div>
+     <div id="flow_inspector" style="width:330px;flex:none">${inspectorHTML()}</div>
+   </div>
+   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${palette}${flowPath.length?'':`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('approval')">+ ✋ Approbation</button>`}</div>
+   ${branchTabs()}
+   <div id="flow_runbar" style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">${runBar()}</div>
+   <div id="flow_run_out" class="sm" style="margin-top:8px"></div>`;
+  renderPanel(); attachDrag();
+}
+
+function edgesSVG(mods){
+  let s='',prev=null;
+  mods.forEach((m,i)=>{ const p=nodePos(m,i), cx=p.x+NODE_W/2;
+    if(prev) s+=`<line x1="${prev.x}" y1="${prev.y}" x2="${cx}" y2="${p.y}" stroke="#b6bcc6" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+    prev={x:cx,y:p.y+NODE_H}; });
+  return s;
+}
+function redrawEdges(){ const svg=$('#flow_svg'); if(!svg)return; svg.querySelectorAll('line').forEach(l=>l.remove());
+  svg.querySelector('defs').insertAdjacentHTML('afterend',edgesSVG(levelModules())); }
+function nodeSVG(m,i){
+  const p=nodePos(m,i), meta=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'}, sel=selNode===m.id;
+  const hasRes=Object.prototype.hasOwnProperty.call(lastResults,m.id);
+  const sub=m.type==='agent'?(m.agent_id||''):m.type==='tool'?(m.tool||'outil'):m.type==='code'?'python':CONTAINERS.includes(m.type)?'double-clic : ouvrir':'';
+  return `<g transform="translate(${p.x},${p.y})" data-id="${m.id}" class="flnode" style="cursor:grab">
+    <rect width="${NODE_W}" height="${NODE_H}" rx="9" fill="#eef1f5" stroke="${sel?'var(--accent)':'#d0d5dd'}" stroke-width="${sel?2:1}"/>
+    <rect width="4" height="${NODE_H}" rx="2" fill="${meta.color}"/>
+    <text x="14" y="23" font-size="15">${meta.icon}</text>
+    <text x="34" y="21" fill="#1f2533" font-size="12.5" font-weight="600">${esc(String(m.summary||meta.label)).slice(0,20)}</text>
+    <text x="34" y="38" fill="#667085" font-size="10.5">${esc(meta.label)}${sub?' · '+esc(String(sub)).slice(0,18):''}</text>
+    <circle cx="${NODE_W-12}" cy="13" r="4" fill="${hasRes?'#3ecf8e':'#b6bcc6'}"/>
+  </g>`;
+}
+function attachDrag(){
+  const svg=$('#flow_svg'); if(!svg)return;
+  svg.querySelectorAll('.flnode').forEach(g=>{
+    const id=g.getAttribute('data-id'); let sx,sy,ox,oy,moved=false,down=false;
+    g.addEventListener('pointerdown',e=>{ e.preventDefault(); down=true; moved=false; g.setPointerCapture(e.pointerId);
+      const mods=levelModules(),m=mods.find(x=>x.id===id),p=nodePos(m,mods.indexOf(m));
+      sx=e.clientX; sy=e.clientY; ox=p.x; oy=p.y; g.style.cursor='grabbing'; });
+    g.addEventListener('pointermove',e=>{ if(!down)return; const dx=e.clientX-sx,dy=e.clientY-sy;
+      if(Math.abs(dx)+Math.abs(dy)>3){ moved=true; const nx=Math.max(0,ox+dx),ny=Math.max(0,oy+dy);
+        g.setAttribute('transform',`translate(${nx},${ny})`); setPos(id,nx,ny); redrawEdges(); } });
+    g.addEventListener('pointerup',e=>{ down=false; g.style.cursor='grab';
+      if(!moved){ selNode=id; renderFlow(); } });
+    g.addEventListener('dblclick',()=>{ const m=findModule(id); if(m&&CONTAINERS.includes(m.type)) drillInto(m); });
+  });
+}
+
+// — palette / manipulation —
+function newName(t){ return (TYPE_META[t]?TYPE_META[t].label:t)+' '+(levelModules().length+1); }
+function addModule(t){
+  const id=Math.random().toString(36).slice(2,10);
+  const m={id,summary:newName(t),type:t,retry:{attempts:0,delay_s:2,mode:'constant'},timeout_s:0,cache_ttl:0,
+    mock:{enabled:false,value:''},stop_after_if:{enabled:false,expr:''},skip_if:{enabled:false,expr:''},sleep_s:0,continue_on_error:false};
+  if(t==='agent')Object.assign(m,{agent_id:(window._agents&&window._agents[0]&&window._agents[0].id)||'orchestrateur',prompt:''});
+  else if(t==='tool')Object.assign(m,{server_id:'',tool:'',args:{}});
+  else if(t==='code')Object.assign(m,{language:'python',content:'# flow_input, results, item, index dispo\nresult = None'});
+  else if(t==='note')Object.assign(m,{text:''});
+  else if(t==='forloop')Object.assign(m,{iterator:'',parallel:false,modules:[]});
+  else if(t==='whileloop')Object.assign(m,{condition:'',max_iter:100,modules:[]});
+  else if(t==='branchone')Object.assign(m,{branches:[{summary:'branche 1',expr:'',modules:[]}],default_modules:[]});
+  else if(t==='branchall')Object.assign(m,{branches:[{summary:'branche 1',modules:[]}],parallel:false});
+  else if(t==='approval')Object.assign(m,{message:'Validation requise pour continuer.',approvers:[]});
+  const mods=levelModules(); const last=mods[mods.length-1]; const lp=last?nodePos(last,mods.length-1):{x:40,y:-56};
+  setPos(id,lp.x,lp.y+86); mods.push(m); selNode=id; renderFlow();
+}
+function drillInto(m){ let bi;
+  if(m.type==='branchone') bi=(m.branches&&m.branches.length)?0:'default';
+  else if(m.type==='branchall'){ if(!m.branches||!m.branches.length)m.branches=[{summary:'branche 1',modules:[]}]; bi=0; }
+  flowPath.push({mid:m.id,bi}); selNode=null; renderFlow();
+}
+function moveModule(d){ const mods=levelModules(),m=findModule(selNode),i=mods.indexOf(m),j=i+d; if(j<0||j>=mods.length)return; mods[i]=mods[j]; mods[j]=m; renderFlow(); }
+function dupModule(){ const mods=levelModules(),m=findModule(selNode); if(!m)return; const c=JSON.parse(JSON.stringify(m)); c.id=Math.random().toString(36).slice(2,10); c.summary=(m.summary||'')+' (copie)'; const i=mods.indexOf(m); mods.splice(i+1,0,c); const p=nodePos(m,i); setPos(c.id,p.x+30,p.y+30); selNode=c.id; renderFlow(); }
+function delModule(){ const mods=levelModules(),m=findModule(selNode); if(!m)return; mods.splice(mods.indexOf(m),1); selNode=null; renderFlow(); }
+function drillSel(){ const m=findModule(selNode); if(m)drillInto(m); }
+
+// — inspecteur —
+function renderInspector(){ const el=$('#flow_inspector'); if(el)el.innerHTML=inspectorHTML(); }
+// — assistant d'insertion de références (façon « plug » Windmill) —
+let _lastField=null;
+document.addEventListener('focusin',e=>{ const t=e.target; if(t&&(t.classList.contains('tmpl')||t.classList.contains('pycode')))_lastField=t; });
+function _tok(kind,key){ const py=_lastField&&_lastField.classList.contains('pycode');
+  if(key===''||key==null) return py?kind:`{{ ${kind} }}`;
+  const safe=/^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
+  if(py) return safe?`${kind}.${key}`:`${kind}[${JSON.stringify(key)}]`;
+  return safe?`{{ ${kind}.${key} }}`:`{{ ${kind}[${JSON.stringify(key)}] }}`; }
+function insertTok(kind,key){
+  const el=_lastField, tok=_tok(kind,key);
+  if(el&&(el.tagName==='TEXTAREA'||el.tagName==='INPUT')){
+    const s=el.selectionStart??el.value.length, e=el.selectionEnd??s;
+    el.value=el.value.slice(0,s)+tok+el.value.slice(e); el.dispatchEvent(new Event('change'));
+    el.focus(); try{el.selectionStart=el.selectionEnd=s+tok.length;}catch(_){}
+    banner('Référence insérée : '+tok,'ok');
+  } else { if(navigator.clipboard)navigator.clipboard.writeText(tok); banner('Référence copiée : '+tok+' (colle-la dans un champ)','ok'); }
+}
+function refsHTML(m){
+  const mods=levelModules(), i=mods.indexOf(m);
+  const chip=(k,key,lbl,ttl)=>`<a href="#" title="${esc(ttl||'')}" onclick="insertTok('${k}','${esc(key).replace(/'/g,"\\'")}');return false" style="display:inline-block;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin:2px 3px 0 0;color:#4f46e5;text-decoration:none;font-size:11px">${esc(lbl)}</a>`;
+  const ins=(currentFlow.inputs||[]).map(it=>chip('flow_input',it.name,'⌨ '+it.name,'entrée du flow')).join('');
+  const steps=mods.slice(0,i).map(x=>chip('results',x.id,(TYPE_META[x.type]||{}).icon+' '+x.summary,'sortie de « '+x.summary+' » (results.'+x.id+')')).join('');
+  let loop=''; for(const seg of flowPath){ const cm=currentFlow.modules.find(z=>z.id===seg.mid); if(cm&&(cm.type==='forloop')){ loop=chip('item','','🔁 item','élément courant de la boucle')+chip('index','','# index',''); break; } }
+  if(!ins&&!steps&&!loop) return '';
+  return `<div class="sm" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px">
+    <div class="muted" style="margin-bottom:2px">Insérer une réf. (clique d'abord dans un champ) :</div>${ins}${loop}${steps}</div>`;
+}
+function inspectorHTML(){
+  const m=findModule(selNode);
+  if(!m) return `<div class="sm muted" style="border:1px dashed var(--line);border-radius:10px;padding:14px">Clique une étape pour l'éditer, ou ajoute-en une via la palette. Double-clic sur une boucle/branche pour entrer dedans.</div>`;
+  const meta=TYPE_META[m.type],idx=levelModules().indexOf(m);
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:#f9fafb">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:16px">${meta.icon}</span>
+      <input value="${esc(m.summary||'')}" onchange="mEdit('summary',this.value)" style="flex:1;font-weight:600" placeholder="nom de l'étape"></div>
+    <div class="sm muted" style="margin-bottom:8px">${esc(meta.label)} · réf <code>results.${esc(m.id)}</code></div>
+    ${typeFields(m)}
+    ${refsHTML(m)}
+    <details style="margin-top:10px"><summary class="sm" style="cursor:pointer;color:#667085">⚙ Avancé — retry, timeout, cache, mock, early-stop…</summary>${advancedFields(m)}</details>
+    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px">
+      <button class="ghost sm" onclick="moveModule(-1)" ${idx<=0?'disabled':''}>↑</button>
+      <button class="ghost sm" onclick="moveModule(1)" ${idx>=levelModules().length-1?'disabled':''}>↓</button>
+      <button class="ghost sm" onclick="dupModule()">dupliquer</button>
+      ${CONTAINERS.includes(m.type)?`<button class="ghost sm" onclick="drillSel()">ouvrir ▸</button>`:''}
+      <span style="flex:1"></span><a href="#" style="color:#dc2626" onclick="delModule();return false">supprimer</a>
+    </div>${mResultHTML(m)}</div>`;
+}
+function typeFields(m){
+  if(m.type==='agent'){ const ags=(window._agents||[]).map(a=>`<option value="${a.id}" ${m.agent_id===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
+    return `<select onchange="mEdit('agent_id',this.value)" style="${SELST};width:100%">${ags}</select>
+      <textarea rows="4" class="tmpl" onchange="mEdit('prompt',this.value)" placeholder="prompt — réf {{ flow_input.x }}, {{ results.id }}" style="margin-top:6px;width:100%">${esc(m.prompt||'')}</textarea>`; }
+  if(m.type==='tool'){ const srvs=Object.values(serversById||{}).map(sv=>`<option value="${sv.id}" ${m.server_id===sv.id?'selected':''}>${esc(sv.name)}</option>`).join('');
+    return `<select onchange="mEdit('server_id',this.value)" style="${SELST};width:100%"><option value="">— serveur MCP —</option>${srvs}</select>
+      <input onchange="mEdit('tool',this.value)" value="${esc(m.tool||'')}" placeholder="nom de l'outil" style="margin-top:6px;width:100%">
+      <textarea rows="3" class="tmpl" onchange="mEditJSON('args',this.value)" placeholder='args JSON — {"q":"{{ flow_input.x }}"}' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.args||{},null,1))}</textarea>`; }
+  if(m.type==='code') return `<textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
+      <div class="sm muted" style="margin-top:3px">Définis <code>result</code> (ou une fonction <code>main()</code>). Dispo : <code>flow_input</code>, <code>results</code>, <code>item</code>, <code>index</code>. Exécuté en sous-processus Python isolé.</div>`;
+  if(m.type==='note') return `<textarea rows="3" class="tmpl" onchange="mEdit('text',this.value)" placeholder="note / jalon — réf {{ results.id }}" style="width:100%">${esc(m.text||'')}</textarea>`;
+  if(m.type==='forloop') return `<input onchange="mEdit('iterator',this.value)" value="${esc(m.iterator||'')}" placeholder="itérateur (expr liste) — results.x ou [1,2,3]" style="width:100%">
+      <label class="sm" style="display:block;margin-top:5px"><input type="checkbox" ${m.parallel?'checked':''} onchange="mEdit('parallel',this.checked)"> parallèle (séquentiel pour l'instant)</label>
+      <div class="sm muted" style="margin-top:4px">Dans la boucle : <code>item</code>, <code>index</code>. <a href="#" onclick="drillSel();return false">ouvrir le corps ▸</a></div>`;
+  if(m.type==='whileloop') return `<input onchange="mEdit('condition',this.value)" value="${esc(m.condition||'')}" placeholder="condition (expr) — index < 5" style="width:100%">
+      <div style="margin-top:5px" class="sm">max itérations <input type="number" onchange="mEditNum('max_iter',this.value)" value="${m.max_iter||100}" style="max-width:90px"></div>
+      <div class="sm muted" style="margin-top:4px"><a href="#" onclick="drillSel();return false">ouvrir le corps ▸</a></div>`;
+  if(m.type==='branchone') return branchEditor(m,true);
+  if(m.type==='branchall') return branchEditor(m,false);
+  if(m.type==='approval') return `<textarea rows="2" onchange="mEdit('message',this.value)" placeholder="message d'approbation" style="width:100%">${esc(m.message||'')}</textarea>
+      <div class="sm muted" style="margin-top:4px">Le flow se suspend ici et attend un clic approuver/refuser.</div>`;
+  return '';
+}
+function branchEditor(m,withExpr){
+  const rows=(m.branches||[]).map((b,bi)=>`<div style="border:1px solid var(--line);border-radius:7px;padding:6px;margin-bottom:5px">
+    <div style="display:flex;gap:5px;align-items:center"><input value="${esc(b.summary||'')}" onchange="bEdit(${bi},'summary',this.value)" placeholder="nom" style="flex:1">
+      <a href="#" class="sm" onclick="drillBranch(${bi});return false">ouvrir ▸</a><a href="#" style="color:#dc2626" onclick="bDel(${bi});return false">×</a></div>
+    ${withExpr?`<input value="${esc(b.expr||'')}" onchange="bEdit(${bi},'expr',this.value)" placeholder="condition (expr) — flow_input.x > 0" style="margin-top:5px;width:100%">`:''}</div>`).join('');
+  return `${rows}<button class="ghost sm" onclick="addBranchInline()">+ branche</button>
+    ${withExpr?`<div class="sm muted" style="margin-top:5px">branche « défaut » (si aucune vraie) : <a href="#" onclick="drillDefault();return false">ouvrir ▸</a></div>`
+              :`<label class="sm" style="display:block;margin-top:6px"><input type="checkbox" ${m.parallel?'checked':''} onchange="mEdit('parallel',this.checked)"> exécuter les branches en parallèle</label>`}`;
+}
+function bEdit(bi,k,v){ const m=findModule(selNode); if(m&&m.branches[bi])m.branches[bi][k]=v; }
+function bDel(bi){ const m=findModule(selNode); if(m){m.branches.splice(bi,1); renderInspector();} }
+function addBranchInline(){ const m=findModule(selNode); if(m){m.branches=m.branches||[]; m.branches.push({summary:'branche '+(m.branches.length+1),expr:'',modules:[]}); renderInspector();} }
+function drillBranch(bi){ const m=findModule(selNode); if(m){flowPath.push({mid:m.id,bi}); selNode=null; renderFlow();} }
+function drillDefault(){ const m=findModule(selNode); if(m){flowPath.push({mid:m.id,bi:'default'}); selNode=null; renderFlow();} }
+function branchTabs(){
+  const m=lastContainer(); if(!m||(m.type!=='branchone'&&m.type!=='branchall'))return '';
+  const cur=flowPath[flowPath.length-1].bi;
+  let tabs=(m.branches||[]).map((b,bi)=>`<button class="ghost sm" style="padding:3px 8px;${cur===bi?'border-color:var(--accent);color:var(--accent)':''}" onclick="switchBranch(${bi})">${esc(b.summary||('branche '+(bi+1)))}</button>`).join('');
+  if(m.type==='branchone') tabs+=`<button class="ghost sm" style="padding:3px 8px;${cur==='default'?'border-color:var(--accent);color:var(--accent)':''}" onclick="switchBranch('default')">défaut</button>`;
+  return `<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span class="sm muted">Branche affichée :</span>${tabs}</div>`;
+}
+function switchBranch(bi){ flowPath[flowPath.length-1].bi=bi; selNode=null; renderFlow(); }
+function advancedFields(m){
+  const r=m.retry||{},mk=m.mock||{},sk=m.skip_if||{},st=m.stop_after_if||{};
+  return `<div class="sm" style="margin-top:8px;display:grid;gap:6px">
+    <div>Retry : <input type="number" value="${r.attempts||0}" onchange="mEditP('retry','attempts',parseInt(this.value)||0)" style="max-width:50px"> ess., délai <input type="number" value="${r.delay_s||0}" onchange="mEditP('retry','delay_s',parseFloat(this.value)||0)" style="max-width:50px">s
+      <select onchange="mEditP('retry','mode',this.value)" style="${SELST}"><option value="constant" ${r.mode==='constant'?'selected':''}>constant</option><option value="exponential" ${r.mode==='exponential'?'selected':''}>expo</option></select></div>
+    <div>Timeout <input type="number" value="${m.timeout_s||0}" onchange="mEditNum('timeout_s',this.value)" style="max-width:55px">s · Cache <input type="number" value="${m.cache_ttl||0}" onchange="mEditNum('cache_ttl',this.value)" style="max-width:55px">s · Pause <input type="number" value="${m.sleep_s||0}" onchange="mEditNum('sleep_s',this.value)" style="max-width:50px">s</div>
+    <label><input type="checkbox" ${mk.enabled?'checked':''} onchange="mToggle('mock','enabled',this.checked)"> mock / pin result</label>
+    ${mk.enabled?`<textarea rows="2" class="tmpl" onchange="mEditP('mock','value',this.value)" placeholder="valeur simulée" style="width:100%">${esc(mk.value||'')}</textarea>`:''}
+    <label><input type="checkbox" ${sk.enabled?'checked':''} onchange="mToggle('skip_if','enabled',this.checked)"> skip si (expr)</label>
+    ${sk.enabled?`<input value="${esc(sk.expr||'')}" onchange="mEditP('skip_if','expr',this.value)" placeholder="flow_input.x == 0" style="width:100%">`:''}
+    <label><input type="checkbox" ${st.enabled?'checked':''} onchange="mToggle('stop_after_if','enabled',this.checked)"> early stop si (expr)</label>
+    ${st.enabled?`<input value="${esc(st.expr||'')}" onchange="mEditP('stop_after_if','expr',this.value)" placeholder="results.${esc(m.id)} == 'fini'" style="width:100%">`:''}
+    <label><input type="checkbox" ${m.continue_on_error?'checked':''} onchange="mEdit('continue_on_error',this.checked)"> continuer en cas d'erreur</label></div>`;
+}
+function mResultHTML(m){ if(!(m.id in lastResults))return ''; let v=lastResults[m.id]; v=typeof v==='string'?v:JSON.stringify(v,null,1);
+  return `<div style="margin-top:8px"><div class="sm muted">Dernière sortie :</div><pre class="sm" style="background:#ffffff;border:1px solid var(--line);border-radius:6px;padding:6px;max-height:140px;overflow:auto;white-space:pre-wrap">${esc(String(v).slice(0,800))}</pre></div>`; }
+function mEdit(k,v){ const m=findModule(selNode); if(m)m[k]=v; }
+function mEditNum(k,v){ const m=findModule(selNode); if(m)m[k]=parseFloat(v)||0; }
+function mEditP(o,k,v){ const m=findModule(selNode); if(m){m[o]=m[o]||{}; m[o][k]=v;} }
+function mToggle(o,k,v){ mEditP(o,k,v); renderInspector(); }
+function mEditJSON(k,v){ const m=findModule(selNode); if(!m)return; try{m[k]=JSON.parse(v||'{}')}catch(e){banner('JSON invalide','ko')} }
+
+// — panneaux entrées / déclencheurs —
+function toggleFlowPanel(n){ flowPanel=flowPanel===n?null:n; renderPanel(); }
+function renderPanel(){ const el=$('#flow_panel'); if(!el)return; el.innerHTML=flowPanel==='inputs'?inputsPanel():flowPanel==='triggers'?triggersPanel():''; }
+function inputsPanel(){
+  const rows=(currentFlow.inputs||[]).map((it,i)=>`<div style="display:flex;gap:5px;margin-bottom:5px;align-items:center;flex-wrap:wrap">
+    <input value="${esc(it.name||'')}" onchange="inEdit(${i},'name',this.value)" placeholder="nom" style="max-width:120px">
+    <select onchange="inEdit(${i},'type',this.value);renderPanel();renderFlow()" style="${SELST}">${['string','number','boolean','select','file'].map(t=>`<option ${it.type===t?'selected':''}>${t}</option>`).join('')}</select>
+    <input value="${esc(it.default??'')}" onchange="inEdit(${i},'default',this.value)" placeholder="défaut" style="max-width:100px">
+    ${it.type==='select'?`<input value="${esc((it.options||[]).join(','))}" onchange="inEditOpts(${i},this.value)" placeholder="opt,opt" style="max-width:140px">`:''}
+    <label class="sm"><input type="checkbox" ${it.required?'checked':''} onchange="inEdit(${i},'required',this.checked)"> requis</label>
+    <a href="#" style="color:#dc2626" onclick="inDel(${i});return false">×</a></div>`).join('');
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#f9fafb">
+    <div class="sm muted" style="margin-bottom:6px">Schéma d'entrées — réf via <code>flow_input.nom</code></div>
+    ${rows||'<span class="sm muted">Aucune entrée.</span>'}<button class="ghost sm" style="margin-top:6px" onclick="inAdd()">+ entrée</button></div>`;
+}
+function inEdit(i,k,v){ currentFlow.inputs[i][k]=v; if(k==='name')renderFlow(); }
+function inEditOpts(i,v){ currentFlow.inputs[i].options=v.split(',').map(x=>x.trim()).filter(Boolean); }
+function inAdd(){ currentFlow.inputs=currentFlow.inputs||[]; currentFlow.inputs.push({name:'param'+(currentFlow.inputs.length+1),type:'string',default:'',required:false}); renderFlow(); }
+function inDel(i){ currentFlow.inputs.splice(i,1); renderFlow(); }
+function triggersPanel(){
+  const wh=currentFlow.webhook_token?(location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token):null;
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#f9fafb">
+    <div style="margin-bottom:8px"><b class="sm">⚡ Webhook</b><br>
+      ${wh?`<code class="sm" style="word-break:break-all">${esc(wh)}</code> <button class="ghost sm" onclick="copyWebhook()">copier</button>`:`<button class="ghost sm" onclick="genWebhook()">générer une URL webhook</button>`}
+      <div class="sm muted">POST JSON → exécute le flow (le corps JSON devient <code>flow_input</code>).</div></div>
+    <div><b class="sm">🗓 Planification</b><br><button class="ghost sm" onclick="scheduleFlow()">planifier ce flow…</button>
+      <span class="sm muted">crée une tâche planifiée quotidienne liée à ce flow.</span></div></div>`;
+}
+async function genWebhook(){ const d=await jpost('/flows/'+currentFlow.id+'/webhook-token',{}); currentFlow.webhook_token=d.token; renderPanel(); banner('Webhook généré.','ok'); }
+function copyWebhook(){ const u=location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token; if(navigator.clipboard)navigator.clipboard.writeText(u); banner('URL copiée.','ok'); }
+async function scheduleFlow(){
+  const cron=prompt('Expression cron (min h jour mois jour-semaine) — laisse vide pour un horaire quotidien :','');
+  if(cron===null)return;
+  const body={name:'Flow : '+currentFlow.name,prompt:'',flow_id:currentFlow.id,scope:currentFlow.scope,project_id:currentFlow.project_id};
+  if(cron.trim()){ body.kind='cron'; body.cron=cron.trim(); }
+  else { const at=prompt('Heure quotidienne (HH:MM) :','09:00'); if(at===null)return; body.kind='daily'; body.at=at; }
+  await jpost('/schedules',body);
+  banner('Flow planifié'+(body.cron?(' (cron '+body.cron+')'):(' chaque jour à '+body.at)),'ok'); if(typeof loadSchedules==='function')loadSchedules(); }
+
+// — barre d'exécution / résultats —
+function runBar(){
+  const ins=(currentFlow.inputs||[]).map(it=>{
+    if(it.type==='boolean')return `<label class="sm">${esc(it.name)} <input type="checkbox" id="fin_${esc(it.name)}" ${it.default?'checked':''}></label>`;
+    if(it.type==='select')return `<span class="sm">${esc(it.name)}</span> <select id="fin_${esc(it.name)}" style="${SELST}">${(it.options||[]).map(o=>`<option ${o==it.default?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+    if(it.type==='file')return `<span class="sm">${esc(it.name)}</span> <select id="fin_${esc(it.name)}" style="${SELST}"><option value="">— fichier —</option>${(window._userFiles||[]).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select>`;
+    return `<input id="fin_${esc(it.name)}" placeholder="${esc(it.name)}" value="${esc(it.default??'')}" type="${it.type==='number'?'number':'text'}" style="max-width:130px">`; }).join(' ');
+  const opts=(currentFlow.modules||[]).map(m=>`<option value="${m.id}">${esc(m.summary)}</option>`).join('');
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${ins}
+    <button onclick="runFlowUI(false)">▶ Exécuter</button>
+    <span class="sm muted">tester jusqu'à</span>
+    <select id="flow_upto" style="${SELST}"><option value="">(fin)</option>${opts}</select>
+    <button class="ghost sm" onclick="runFlowUI(true)">tester</button></div>`;
+}
+async function runFlowUI(useUpto){
+  await saveFlow();
+  const inputs={};
+  (currentFlow.inputs||[]).forEach(it=>{ const el=$('#fin_'+it.name); if(!el)return;
+    inputs[it.name]=it.type==='boolean'?el.checked:it.type==='number'?(parseFloat(el.value)||0):el.value; });
+  const up_to=useUpto?($('#flow_upto')?$('#flow_upto').value:''):'';
+  banner('Flow lancé…','ok');
+  const r=await jpost('/flows/'+currentFlow.id+'/run',{inputs,up_to:up_to||null});
+  lastResults=r.results||{};
+  let out;
+  if(r.status==='waiting') out=`<div style="border:1px solid #f0c879;border-radius:8px;padding:10px;background:#fff7e6">✋ <b>En attente d'approbation</b> : ${esc(r.message||'')}<br>
+      <a href="${r.approve_url}" target="_blank" style="color:#3ecf8e">approuver ▸</a> &nbsp; <a href="${r.reject_url}" target="_blank" style="color:#dc2626">refuser ▸</a>
+      <div class="sm muted" style="margin-top:4px">(en prod ces liens seraient envoyés par mail/Slack ; clique puis relance « ↻ » du kanban)</div></div>`;
+  else if(r.status==='done') out=`<div style="color:#3ecf8e">✓ Flow terminé${r.stopped?' (arrêt anticipé)':''}.</div><pre class="sm" style="background:#ffffff;border:1px solid var(--line);border-radius:6px;padding:6px;max-height:160px;overflow:auto;white-space:pre-wrap;margin-top:4px">${esc(typeof r.result==='string'?r.result:JSON.stringify(r.result,null,1))}</pre>`;
+  else out=`<div style="color:#dc2626">✗ ${esc(r.error||r.status||'erreur')}${r.failed_step?' (étape : '+esc(r.failed_step)+')':''}</div>`;
+  banner(r.status==='done'?'Flow terminé ✓':r.status==='waiting'?'Flow suspendu : approbation requise.':'Flow en erreur', r.status==='error'?'ko':'ok');
+  renderFlow(); $('#flow_run_out').innerHTML=out;
+  loadTasks(); loadAudit(); loadObs();
+}
+async function saveFlow(){
+  await jpatch('/flows/'+currentFlow.id,{name:currentFlow.name,summary:currentFlow.summary,inputs:currentFlow.inputs,modules:currentFlow.modules,ui:currentFlow.ui});
+  banner('Flow enregistré.','ok'); loadFlows();
+}
+async function deleteFlow(){ if(!confirm('Supprimer ce flow ?'))return; await jdel('/flows/'+currentFlow.id); currentFlow=null; flowPath=[]; selNode=null; $('#flow_editor').innerHTML=''; loadFlows(); }
+
+// ── Kanban des tâches ──
+async function loadTasks(){
+  const d=await jget('/tasks'); const ts=d.tasks||[];
+  const cols={running:[],done:[],error:[]};
+  ts.forEach(t=>{ const k=(t.status==='running'||t.status==='waiting')?'running':(t.status==='error'?'error':'done'); cols[k].push(t); });
+  const C={done:'#3ecf8e',error:'#dc2626',running:'#f5c451',waiting:'#b45309',skipped:'#6b7280',pending:'#b6bcc6'};
+  const dot=st=>`<span title="${st}" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;background:${C[st]||'#444'}"></span>`;
+  const card=t=>{const done=(t.steps||[]).filter(s=>s.status==='done').length,tot=(t.steps||[]).length;
+    const badge=t.status==='waiting'?' <span class="pill" style="background:#fff7e6;color:#b45309">⏸ attente</span>':'';
+    return `<div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#f1f3f6">
+      <b style="font-weight:500;font-size:13px">${esc(t.title)}</b> <span class="pill">${esc(t.kind)}</span>${badge}
+      <div class="sm muted" style="margin-top:4px">${tot?(done+'/'+tot+' étapes '):''}${(t.steps||[]).map(s=>dot(s.status)).join('')}</div>
+      ${t.result?`<div class="sm" style="margin-top:4px;color:#667085">${esc(String(t.result||'').slice(0,120))}</div>`:''}</div>`;};
+  const col=(title,arr)=>`<div><div class="sm muted" style="margin-bottom:6px">${title} (${arr.length})</div>${arr.map(card).join('')||'<span class="muted sm">—</span>'}</div>`;
+  $('#kanban').innerHTML=col('En cours',cols.running)+col('Terminé',cols.done)+col('Erreur',cols.error);
+}
+async function loadObs(){
+  const d=await jget('/observability'); if(!d||d.error)return;
+  const u=d.usage, f=d.flows;
+  const kpi=(l,v)=>`<div style="flex:1;min-width:115px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:#f9fafb"><div class="sm muted">${l}</div><div style="font-size:19px;font-weight:600">${v}</div></div>`;
+  const bars=arr=>{const mx=Math.max(1,...arr.map(x=>x[1]));return arr.map(x=>`<div class="sm" style="display:flex;align-items:center;gap:6px;margin:2px 0"><span style="min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(x[0]))}</span><span style="flex:1;background:#ffffff;border-radius:4px;overflow:hidden"><span style="display:block;height:11px;width:${Math.round(x[1]/mx*100)}%;background:var(--acc,#7c5cff)"></span></span><span class="muted" style="min-width:54px;text-align:right">${x[1]}</span></div>`).join('')||'<span class="muted sm">—</span>';};
+  if($('#obs_scope')) $('#obs_scope').textContent=d.admin?'(vue globale — admin)':'(tes données)';
+  $('#obs').innerHTML=`
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px">
+      ${kpi('Appels LLM',u.calls)}${kpi('Tokens prompt',u.ptok)}${kpi('Tokens réponse',u.ctok)}${kpi('Coût estimé','$'+u.cost)}${kpi('Flows OK',f.by_status.done||0)}${kpi('Flows erreur',f.by_status.error||0)}</div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <div style="flex:1;min-width:230px"><div class="sm muted" style="margin-bottom:4px">Tokens par utilisateur</div>${bars(u.by_user)}</div>
+      <div style="flex:1;min-width:230px"><div class="sm muted" style="margin-bottom:4px">Activité par type</div>${bars(d.activity.by_kind)}</div>
+      <div style="flex:1;min-width:230px"><div class="sm muted" style="margin-bottom:4px">Tokens par jour</div>${bars(u.by_day)}</div>
+    </div>
+    <div class="sm muted" style="margin-top:12px;margin-bottom:4px">Exécutions récentes</div>
+    ${(f.recent||[]).map(r=>`<div class="row"><span class="dot ${r.status==='done'?'ok':r.status==='error'?'ko':''}"></span><b style="font-weight:500">${esc(r.title||'')}</b> <span class="pill">${esc(r.kind||'')}</span> <span class="det">${r.dur}s · ${esc(r.status||'')}</span></div>`).join('')||'<span class="muted sm">Aucune exécution.</span>'}
+    <div class="sm muted" style="margin-top:8px">Coûts = estimation (Codex = abonnement, marge ≈ 0 ; prix ajustables côté serveur).</div>`;
+}
+async function createProject(){
+  const name=$('#new_proj_name').value.trim(); if(!name){banner('Nom requis.','ko');return}
+  await jpost('/projects',{name}); $('#new_proj_name').value=''; loadProjects(); banner('Projet créé.','ok');
+}
+async function connectOAuth(id){
+  const w=window.open('','_blank');
+  const d=await jget('/mcp/oauth/start?server='+encodeURIComponent(id));
+  if(d.error){if(w)w.close();banner(d.error,'ko');return}
+  if(w)w.location=d.auth_url; else window.location=d.auth_url;
+  setTimeout(loadServers,5000);
+}
+function banner(msg,kind){
+  $('#banner').innerHTML=`<div style="background:#f4f6f8;border:1px solid ${kind==='ok'?'#bbf7d0':'#fecaca'};border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:4px">
+    <span class="dot ${kind==='ok'?'ok':'ko'}"></span>${esc(msg)}</div>`;
+}
+function initBanner(){
+  const p=new URLSearchParams(location.search);
+  if(p.get('connected'))banner('Connexion OAuth réussie.','ok');
+  else if(p.get('oauth_error'))banner('Erreur OAuth : '+esc(p.get('oauth_error')),'ko');
+}
+async function loadTools(id){
+  const box=$('#tools_'+id); box.innerHTML='<span class="muted sm">…</span>';
+  const d=await jget('/mcp/tools?server='+encodeURIComponent(id));
+  if(d.error){box.innerHTML=`<span class="dot ko"></span><span class="sm">${esc(d.error)}</span>`;return}
+  box.innerHTML=d.tools.map(t=>`<div class="tool"><code>${esc(t.name)}</code>
+      <span class="desc">${esc(t.description||'')}</span>
+      <button class="ghost sm" style="padding:3px 9px" onclick="pick('${esc(id)}','${esc(t.name)}')">utiliser</button></div>`).join('');
+}
+function pick(srv,tool){$('#t_srv').value=srv;$('#t_tool').value=tool;$('#t_out').scrollIntoView({behavior:'smooth'});}
+
+async function callTool(){
+  let args={};
+  try{args=JSON.parse($('#t_args').value||'{}')}catch(e){$('#t_out').textContent='Arguments JSON invalides';return}
+  $('#t_out').textContent='…';
+  const d=await jpost('/mcp/call',{server:$('#t_srv').value,tool:$('#t_tool').value,arguments:args});
+  $('#t_out').textContent=JSON.stringify(d,null,2);
+}
+
+async function loadFiles(){
+  const d=await jget('/files'); if(d.error){if($('#files_list'))$('#files_list').innerHTML='<span class="muted sm">Accès restreint.</span>';return}
+  window._userFiles=d.files||[];
+  const wr=(window._caps||[]).includes('file.write');
+  $('#files_list').innerHTML=(d.files||[]).map(f=>`<div class="row"><b style="font-weight:500">${esc(f.name)}</b> <span class="pill">${esc(f.scope)}</span> <span class="det">${((f.size||0)/1024).toFixed(1)} Ko · <a href="#" onclick="dlFile('${f.id}','${esc(f.name).replace(/'/g,"")}');return false">télécharger</a>${wr?` · <a href="#" style="color:#dc2626" onclick="delFile('${f.id}');return false">suppr</a>`:''}</span></div>`).join('')||'<span class="muted sm">Aucun fichier.</span>';
+}
+async function dlFile(id,name){
+  const r=await fetch('/files/'+id+'/content',{headers:_hdr()}); if(!r.ok){banner('Téléchargement refusé.','ko');return}
+  const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a'); a.href=u; a.download=name||'fichier'; a.click(); URL.revokeObjectURL(u);
+}
+async function uploadFile(){
+  const inp=$('#file_up'),f=inp.files&&inp.files[0]; if(!f){banner('Choisis un fichier.','ko');return}
+  if(f.size>1000000){banner('Fichier > 1 Mo (limite phase 0).','ko');return}
+  const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.readAsDataURL(f);});
+  const scope=($('#file_scope')&&$('#file_scope').value)||'perso';
+  const body={name:f.name,content_b64:b64,mime:f.type||'application/octet-stream',scope};
+  if(scope==='projet'&&currentSession&&currentSession.project_id)body.project_id=currentSession.project_id;
+  const d=await jpost('/files',body); if(d.error){banner(d.error,'ko');return}
+  inp.value=''; loadFiles(); banner('Fichier déposé.','ok');
+}
+async function delFile(id){ if(!confirm('Supprimer ce fichier ?'))return; await jdel('/files/'+id); loadFiles(); }
+async function loadSkills(){
+  const d=await jget('/skills'); window._skillTeams=d.teams||[]; window._skills=d.skills||[];
+  $('#skills').innerHTML=window._skills.map((s,i)=>{
+    const acc=s.allow_all?'<span class="pill">accès : tous</span>':`<span class="pill">accès : ${(s.team_names||[]).map(esc).join(', ')||'admin'}</span>`;
+    const mgr=s.can_manage?` · <a href="#" class="sm" onclick="skillAccess(${i});return false">accès…</a>`:'';
+    return `<div class="skill"><b>${esc(s.name)}</b> ${acc}${mgr}
+      <div class="sm muted">${esc(s.description)}</div>
+      ${(s.mcp_tools&&s.mcp_tools.length)?`<div class="sm">outils : ${s.mcp_tools.map(t=>`<code>${esc(t)}</code>`).join(' ')}</div>`:''}
+      <div id="ska_${i}"></div></div>`;}).join('') || '<span class="muted">Aucune skill visible (selon tes droits).</span>';
+}
+function skillAccess(i){
+  const s=window._skills[i], teams=window._skillTeams||[];
+  $('#ska_'+i).innerHTML=`<div style="margin-top:6px;border-top:1px dashed var(--line);padding-top:6px">
+    <label class="sm"><input type="checkbox" id="ska_all_${i}" ${s.allow_all?'checked':''}> ouverte à tous</label>
+    <div class="sm" style="margin-top:4px">équipes : ${teams.map(t=>`<label style="margin-right:8px"><input type="checkbox" class="ska_t_${i}" value="${t.id}" ${(s.allowed_teams||[]).includes(t.id)?'checked':''}> ${esc(t.name)}</label>`).join('')||'<span class="muted">aucune équipe</span>'}</div>
+    <button class="ghost sm" style="padding:4px 9px;margin-top:5px" onclick="saveSkillAccess(${i})">Enregistrer</button></div>`;
+}
+async function saveSkillAccess(i){
+  const s=window._skills[i]; const teams=[...document.querySelectorAll('.ska_t_'+i+':checked')].map(x=>x.value);
+  await jpost('/admin/skill-access',{name:s.name,allow_all:$('#ska_all_'+i).checked,allowed_teams:teams});
+  banner('Accès skill mis à jour.','ok'); loadSkills();
+}
+
+async function searchMem(){
+  const d=await jget('/memory?q='+encodeURIComponent($('#m_q').value));
+  if(!d.available){$('#memory').innerHTML=`<span class="muted">${esc(d.note||'')}</span>`;return}
+  $('#memory').innerHTML=(d.items||[]).map(i=>`<div class="row">
+      <span>${i.level>0?'<span class="pill" style="color:#f5c451;border-color:#5a4a1a">résumé ×'+(i.children||0)+'</span> ':''}${esc(i.content)}</span>
+      <span class="det">${esc(i.source||'')} ${i.level>0?'· <a href="#" onclick="expandMem(\''+i.id+'\');return false">déplier</a>':''} · <a href="#" style="color:#dc2626" onclick="delMem('${i.id}');return false">suppr</a></span></div>
+      <div id="exp_${i.id}"></div>`).join('')||'<span class="muted">vide</span>';
+}
+async function expandMem(id){
+  const d=await jget('/memory/'+encodeURIComponent(id)+'/children');
+  $('#exp_'+id).innerHTML='<div class="sm muted" style="padding:2px 0 6px 16px">'+((d.children||[]).map(c=>'• '+esc(c)).join('<br>')||'(aucun)')+'</div>';
+}
+async function delMem(id){ await jdel('/memory/'+encodeURIComponent(id)); searchMem(); }
+async function resetMem(){ if(!confirm('Réinitialiser TOUTE la mémoire ?'))return; await jpost('/memory/reset',{}); searchMem(); banner('Mémoire réinitialisée.','ok'); }
+
+function initApp(){
+  health(); runTests(); loadServers(); loadSkills(); loadProviders(); initBanner(); renderChat();
+  loadProjects(); loadSessions(); loadAgents(); loadSchedules(); loadAudit(); loadFlows(); loadTasks(); loadObs(); loadFiles();
+  if((window._caps||[]).includes('admin')) loadAdmin();
+}
+gateAuth();   // authentifie d'abord, puis initApp() une fois connecté
+
+// auto-refresh : recharge la page dès que le serveur a rechargé (fini "ça s'applique pas")
+let _ver=null;
+async function checkVersion(){ try{const d=await jget('/version'); if(_ver!==null && d.v!==_ver){location.reload();} _ver=d.v;}catch(e){} }
+checkVersion(); setInterval(checkVersion, 2000);
+</script>
+</body>
+</html>

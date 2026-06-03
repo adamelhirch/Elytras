@@ -1,0 +1,58 @@
+# Elytras — Phase 0 — stack minimale (Mac M2 16 Go)
+# Ollama tourne EN NATIF sur le Mac (pas ici) pour profiter du GPU Metal.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-elytras}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-elytras}
+      POSTGRES_DB: ${POSTGRES_DB:-elytras}
+    ports:
+      - "127.0.0.1:5432:5432"      # base : accessible en local uniquement
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-elytras}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Serveur MCP d'EXEMPLE (démo). Remplaçable / supprimable.
+  example-mcp:
+    build: ./example-mcp
+    ports:
+      - "127.0.0.1:9001:8000"
+
+  core:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-elytras}:${POSTGRES_PASSWORD:-elytras}@db:5432/${POSTGRES_DB:-elytras}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      EXAMPLE_MCP_URL: http://example-mcp:8000
+      SKILLS_DIR: /app/skills
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-change-me}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
+    depends_on:
+      db:
+        condition: service_healthy
+      example-mcp:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8000:8000"      # interface web : http://localhost:8000 (local uniquement)
+      - "127.0.0.1:1455:1455"      # callback OAuth Codex   (auth.openai.com -> localhost:1455)
+      - "127.0.0.1:54545:54545"    # callback OAuth Claude  (claude.ai      -> localhost:54545)
+      - "127.0.0.1:8085:8085"      # callback OAuth Gemini  (google         -> localhost:8085)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Ollama natif (utile sous Linux ; no-op sur Mac)
+
+  adminer:
+    image: adminer:4
+    ports:
+      - "127.0.0.1:8080:8080"      # admin BDD : local uniquement
+    depends_on:
+      - db
+
+volumes:
+  db_data:
