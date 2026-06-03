@@ -188,7 +188,9 @@ def _capture_code(port: int, path: str, timeout: float = 300.0) -> tuple[str | N
                 self.send_response(404)
                 self.end_headers()
 
-    srv = HTTPServer(("127.0.0.1", port), Handler)   # OAuth loopback (RFC 8252) : local uniquement
+    # OAuth loopback (RFC 8252) : 127.0.0.1 en local. En conteneur, ELYTRAS_OAUTH_BIND=0.0.0.0
+    # (le port n'est publié QUE sur 127.0.0.1 de l'hôte → pas d'exposition réseau).
+    srv = HTTPServer((os.environ.get("ELYTRAS_OAUTH_BIND", "127.0.0.1"), port), Handler)
     deadline = time.time() + timeout
     while time.time() < deadline and not got.get("code"):
         srv.timeout = max(1.0, deadline - time.time())

@@ -1,0 +1,70 @@
+# Elytras — déploiement « 1 entreprise / 1 serveur », conteneurisé et isolé.
+# Lancé par ./install.sh. Profils : "prod" (passerelle+OpenRouter), "demo" (MCP d'exemple).
+name: elytras
+
+services:
+  # Reverse proxy : TLS automatique si un domaine est fourni, sinon HTTP local.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      ELYTRAS_SITE_ADDRESS: ${ELYTRAS_SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - elytras
+
+  # L'application (instance de l'entreprise). N'est PAS exposée directement : seulement via Caddy.
+  elytras:
+    build: ../phase-0
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ELYTRAS_STATE_FILE: /data/.elytras-state.json
+      ELYTRAS_KEY_FILE: /data/.elytras-key
+      ELYTRAS_OAUTH_BIND: ${ELYTRAS_OAUTH_BIND:-0.0.0.0}
+      ELYTRAS_CODE_SANDBOX: ${ELYTRAS_CODE_SANDBOX:-auto}
+      SKILLS_DIR: /app/skills
+    volumes:
+      - elytras_data:/data            # état + clé de chiffrement (persistants, à sauvegarder)
+    expose:
+      - "8000"
+    ports:
+      # Callbacks OAuth des providers (Codex/Claude/Gemini) — UNIQUEMENT en local (127.0.0.1).
+      - "127.0.0.1:1455:1455"
+      - "127.0.0.1:54545:54545"
+      - "127.0.0.1:8085:8085"
+
+  # Passerelle IA (resell) — démarrée seulement en mode PROD.
+  gateway:
+    build: ../gateway
+    profiles: ["prod"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GATEWAY_STATE_FILE: /data/.gateway-state.json
+    volumes:
+      - gateway_data:/data
+    expose:
+      - "8088"
+    ports:
+      - "127.0.0.1:8088:8088"        # admin/provisioning en local uniquement
+
+  # Serveur MCP d'exemple — démarré seulement avec le module "demo".
+  example-mcp:
+    build: ../phase-0/example-mcp
+    profiles: ["demo"]
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+volumes:
+  caddy_data:
+  caddy_config:
+  elytras_data:
+  gateway_data:

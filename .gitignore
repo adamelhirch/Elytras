@@ -23,6 +23,10 @@ phase-0/.venv/
 # Données locales (fichiers déposés, etc.)
 phase-0/files_data/
 
+# Déploiement : config générée par l'onboarding (runtime)
+deploy/.env
+deploy/selection.json
+
 # OS / éditeurs
 .DS_Store
 **/.DS_Store

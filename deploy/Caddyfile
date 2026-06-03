@@ -1,0 +1,7 @@
+# Reverse proxy Elytras. L'adresse vient de ELYTRAS_SITE_ADDRESS :
+#   - un domaine (ex. garage.elytras.app)  -> HTTPS automatique (Let's Encrypt)
+#   - ":80"                                -> HTTP local (accès par IP du serveur / localhost)
+{$ELYTRAS_SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy elytras:8000
+}
