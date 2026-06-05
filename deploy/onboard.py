@@ -24,6 +24,64 @@ MODULES = {
 }
 AVAILABLE_NOW = {"demo"}
 
+# Profils sectoriels : adaptent l'onboarding au type d'entreprise (contexte + workflows + modules suggérés).
+SECTORS = {
+    "artisan": {
+        "label": "Artisan / BTP (électricien, plombier, garage…)",
+        "desc": "devis, factures, prise de RDV / interventions, relances, réponses aux mails",
+        "modules": ["odoo"],
+        "workflows": ["Relancer les devis non signés",
+                      "Établir la facture après une intervention",
+                      "Répondre aux demandes de devis reçues par mail"],
+    },
+    "commerce": {
+        "label": "Commerce de détail (boutique, magasin)",
+        "desc": "ventes, stock, fiches produits, fidélité / CRM, réponses clients",
+        "modules": ["odoo"],
+        "workflows": ["Relancer les clients inactifs",
+                      "Mettre à jour les fiches produits",
+                      "Répondre aux avis et messages clients"],
+    },
+    "services": {
+        "label": "Services / professions libérales (cabinet, conseil)",
+        "desc": "prise de RDV, devis / factures, suivi client, mails",
+        "modules": [],
+        "workflows": ["Prendre les RDV et envoyer les rappels",
+                      "Émettre les factures récurrentes",
+                      "Trier et répondre aux mails"],
+    },
+    "resto": {
+        "label": "Restauration / hôtellerie",
+        "desc": "réservations, commandes fournisseurs, avis, plannings",
+        "modules": [],
+        "workflows": ["Gérer les réservations et confirmations",
+                      "Répondre aux avis en ligne",
+                      "Passer les commandes fournisseurs"],
+    },
+    "autre": {
+        "label": "Autre / générique",
+        "desc": "mails, devis, factures, RDV, tâches administratives",
+        "modules": [],
+        "workflows": ["Trier et répondre aux mails",
+                      "Établir devis et factures",
+                      "Gérer l'agenda et les RDV"],
+    },
+}
+
+
+def sector_context(sector: str, company: str) -> str:
+    """Modèle de « contexte entreprise » (mémoire système) pré-rempli selon le secteur."""
+    s = SECTORS.get(sector, SECTORS["autre"])
+    wf = "\n".join(f"- {w}" for w in s["workflows"])
+    return (f"# Contexte de l'entreprise — {company}\n\n"
+            f"Secteur : {s['label']}.\n"
+            f"Activités à automatiser en priorité : {s['desc']}.\n\n"
+            f"## Workflows de départ suggérés\n{wf}\n\n"
+            f"## À compléter pendant l'onboarding\n"
+            f"- Présentation de l'entreprise, ton et préférences de communication.\n"
+            f"- Outils utilisés (ex. Odoo, Gmail, agenda) à connecter via MCP.\n"
+            f"- Règles internes et points de vigilance.\n")
+
 
 def _gen(n: int = 32) -> str:
     return secrets.token_urlsafe(n)
@@ -34,10 +92,16 @@ def build_config(a: dict):
     company = a.get("company") or "Mon Entreprise"
     mode = (a.get("ai_mode") or "test").lower()
     domain = (a.get("domain") or "").strip()
-    modules = [m for m in (a.get("modules") or []) if m in AVAILABLE_NOW]
+    sector = (a.get("sector") or "autre").lower()
+    if sector not in SECTORS:
+        sector = "autre"
+    # Modules : ceux choisis ; sinon ceux suggérés par le secteur (filtrés sur le disponible).
+    chosen = a.get("modules") if a.get("modules") is not None else SECTORS[sector]["modules"]
+    modules = [m for m in chosen if m in AVAILABLE_NOW]
 
     env = {
         "ELYTRAS_COMPANY": company,
+        "ELYTRAS_SECTOR": sector,
         "ELYTRAS_SITE_ADDRESS": domain or ":80",      # Caddy : domaine => HTTPS auto ; sinon HTTP local
         "ELYTRAS_OAUTH_BIND": "0.0.0.0",              # conteneur ; port publié seulement en 127.0.0.1
     }
@@ -72,11 +136,16 @@ def render_env(env: dict) -> str:
 
 def write(a: dict, deploy_dir: pathlib.Path = DEPLOY_DIR):
     env, profiles, modules = build_config(a)
+    sector = env["ELYTRAS_SECTOR"]
     (deploy_dir / ".env").write_text(render_env(env), encoding="utf-8")
     (deploy_dir / "selection.json").write_text(
-        json.dumps({"company": a.get("company"), "ai_mode": a.get("ai_mode"),
-                    "modules": modules, "profiles": profiles}, ensure_ascii=False, indent=2),
+        json.dumps({"company": a.get("company"), "sector": sector, "ai_mode": a.get("ai_mode"),
+                    "modules": modules, "profiles": profiles,
+                    "suggested_workflows": SECTORS[sector]["workflows"]}, ensure_ascii=False, indent=2),
         encoding="utf-8")
+    # Modèle de contexte entreprise (à coller dans la mémoire système lors de l'onboarding).
+    (deploy_dir / "company-context.md").write_text(
+        sector_context(sector, env["ELYTRAS_COMPANY"]), encoding="utf-8")
     return env, profiles, modules
 
 
@@ -98,6 +167,16 @@ def main():
 
     print("\n=== Onboarding Elytras (1 entreprise / 1 serveur) ===\n")
     a: dict = {"company": _ask("Nom de l'entreprise", "Mon Entreprise")}
+
+    print("\nSecteur d'activité (adapte le contexte et les workflows de départ) :")
+    keys = list(SECTORS.keys())
+    for i, k in enumerate(keys, 1):
+        print(f"  {i}) {SECTORS[k]['label']}")
+    sel = _ask("Choix", str(len(keys)))
+    try:
+        a["sector"] = keys[int(sel) - 1]
+    except (ValueError, IndexError):
+        a["sector"] = "autre"
 
     print("\nCerveau IA :")
     print("  1) Test — Codex, gratuit via ton abonnement ChatGPT (recommandé pour démarrer)")

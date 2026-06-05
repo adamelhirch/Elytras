@@ -5,6 +5,24 @@ import onboard
 import provision
 
 
+def test_sector_adapts_context_and_env():
+    env, _, _ = onboard.build_config({"company": "Élec Pro", "ai_mode": "test", "sector": "artisan"})
+    assert env["ELYTRAS_SECTOR"] == "artisan"
+    ctx = onboard.sector_context("artisan", "Élec Pro")
+    assert "Élec Pro" in ctx and "devis" in ctx.lower()          # contexte adapté au métier
+
+
+def test_unknown_sector_falls_back():
+    env, _, _ = onboard.build_config({"company": "X", "ai_mode": "test", "sector": "spatial"})
+    assert env["ELYTRAS_SECTOR"] == "autre"                       # secteur inconnu -> générique
+
+
+def test_write_emits_company_context(tmp_path):
+    onboard.write({"company": "Resto Bel", "ai_mode": "test", "sector": "resto"}, deploy_dir=tmp_path)
+    md = (tmp_path / "company-context.md").read_text()
+    assert "Resto Bel" in md and "réservations" in md.lower()     # workflows du secteur
+
+
 def test_build_config_test_mode_codex():
     env, profiles, modules = onboard.build_config(
         {"company": "Garage Martin", "ai_mode": "test", "modules": ["demo"]})
