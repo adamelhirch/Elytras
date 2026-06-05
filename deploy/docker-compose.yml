@@ -29,9 +29,11 @@ services:
       ELYTRAS_KEY_FILE: /data/.elytras-key
       ELYTRAS_OAUTH_BIND: ${ELYTRAS_OAUTH_BIND:-0.0.0.0}
       ELYTRAS_CODE_SANDBOX: ${ELYTRAS_CODE_SANDBOX:-auto}
+      ELYTRAS_COMPANY_SEED_FILE: /seed/company-context.md   # injecté au 1er démarrage (onboarding)
       SKILLS_DIR: /app/skills
     volumes:
       - elytras_data:/data            # état + clé de chiffrement (persistants, à sauvegarder)
+      - ./company-context.md:/seed/company-context.md:ro    # contexte entreprise (généré par onboard.py)
     expose:
       - "8000"
     ports:

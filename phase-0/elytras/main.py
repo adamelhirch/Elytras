@@ -2118,6 +2118,28 @@ if os.environ.get("ELYTRAS_TELEGRAM", "1") != "0":
         pass
 
 
+def _seed_company_if_empty():
+    """Au 1er démarrage : si la mémoire système « entreprise » est vide et qu'un fichier de
+    contexte est fourni (ELYTRAS_COMPANY_SEED_FILE), on l'injecte automatiquement — l'onboarding
+    n'a plus besoin de copier-coller le contexte dans l'interface."""
+    path = os.environ.get("ELYTRAS_COMPANY_SEED_FILE")
+    if not path:
+        return
+    try:
+        if (_company_md() or "").strip():
+            return                                  # déjà défini : on ne touche pas
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                md = f.read().strip()
+            if md:
+                filestore.put("company", "doc", {"md": md})
+    except Exception:
+        pass
+
+
+_seed_company_if_empty()
+
+
 @app.post("/chat")
 def chat(req: ChatReq, actor: str = Depends(_need("agent.use"))):
     if not req.messages:
