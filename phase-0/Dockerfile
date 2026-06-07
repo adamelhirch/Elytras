@@ -2,7 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# curl + Tesseract OCR (français/anglais) pour lire les PDF scannés / images / étiquettes.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

@@ -927,12 +927,16 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
                                          "required": ["flow"]}}]
 
     if "file.read" in _caps:                     # outils fichiers (espace scopé), selon les droits
-        instr += ("\n\nFichiers : list_files() liste tes fichiers ; read_file(name) lit un fichier texte ; "
-                  "send_file(name) ENVOIE un fichier à l'utilisateur dans la conversation (web ou Telegram).")
+        instr += ("\n\nFichiers : list_files() liste tes fichiers ; read_file(name) EXTRAIT le texte d'un "
+                  "fichier (PDF, Word, Excel, image par OCR, ou texte) ; send_file(name) ENVOIE un fichier à "
+                  "l'utilisateur (web ou Telegram). IMPORTANT : si read_file renvoie un message entre crochets "
+                  "(ex. « scanné », « non pris en charge », « échec »), dis-le honnêtement — n'invente JAMAIS "
+                  "le contenu d'un fichier que tu n'as pas réussi à lire.")
         tools = tools + [
             {"type": "function", "name": "list_files", "description": "Liste les fichiers accessibles.",
              "parameters": {"type": "object", "properties": {}}},
-            {"type": "function", "name": "read_file", "description": "Lit le contenu texte d'un fichier par son nom.",
+            {"type": "function", "name": "read_file",
+             "description": "Extrait le texte d'un fichier (PDF, Word .docx, Excel .xlsx, image via OCR, texte) par son nom.",
              "parameters": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
             {"type": "function", "name": "send_file",
              "description": "Livre un fichier à l'utilisateur dans le chat (téléchargement web / document Telegram).",
@@ -1054,7 +1058,7 @@ def _dispatch_call(name, args, agent, meta, used, mapping):
         if name == "list_files":
             return {"files": [f["name"] for f in files.list_files(user_id, fpids)]}
         f = files.get_by_name(args.get("name", ""), user_id, fpids)
-        return {"name": args.get("name"), "content": files.text_of(f)[:8000]} if f else {"error": "fichier introuvable"}
+        return {"name": args.get("name"), "content": files.extract_text(f)[:12000]} if f else {"error": "fichier introuvable"}
     if name == "send_file":
         if not rbac.has_cap(user_id, "file.read"):
             return {"error": "non autorisé : capacité file.read requise"}
@@ -1748,7 +1752,7 @@ def run_flow(flow, inputs, user_id, up_to=None):
             if it.get("type") == "file" and inputs.get(it["name"]):
                 ref = inputs[it["name"]]
                 fobj = files.get_file(ref, user_id, fpids) or files.get_by_name(ref, user_id, fpids)
-                inputs[it["name"]] = files.text_of(fobj) if fobj else ""
+                inputs[it["name"]] = files.extract_text(fobj) if fobj else ""
                 if fobj:
                     flow_files[it["name"]] = fobj          # pour le montage dans le bac à sable du code
         task_steps = [{"name": m.get("summary") or m.get("type"), "status": "pending"} for m in modules]
