@@ -1145,7 +1145,7 @@ def _chat_finalize(finalize, answer):
 
     def _bg():
         try:
-            ex = providers.CodexProvider()
+            ex = _agent_provider()
             memory_engine.remember(finalize["mscope"], finalize["mowner"], finalize["mproj"],
                                    finalize.get("last_user", ""), answer, sid or "", lambda m: ex.complete(m).text)
         except Exception:
@@ -1159,14 +1159,26 @@ def _agent_done(answer, used, finalize, meta=None):
             "attachments": (meta or {}).get("attachments") or []}
 
 
+def _agent_provider():
+    """Provider de la boucle AGENTIQUE selon ELYTRAS_PROVIDER : Codex (test) OU passerelle (prod).
+    On garde l'attribut rebindable providers.CodexProvider pour le mode codex (et les tests)."""
+    name = os.environ.get("ELYTRAS_PROVIDER", "codex")
+    if name in ("elytras-gateway", "gateway"):
+        return providers.ElytrasGatewayProvider()
+    return providers.CodexProvider()
+
+
 def _agent_loop(agent, instr, tools, mapping, input_items, meta, used, autonomy, finalize, queue=None):
-    cp = providers.CodexProvider()
+    cp = _agent_provider()
+    tier = (agent.get("tier") or "").strip()
+    if tier and getattr(cp, "name", "") == "elytras-gateway":
+        cp.default_model = tier                  # gamme IA propre à l'agent (mode passerelle)
     turns = 0
     while turns < 8:
         if queue is None:
             turn = cp.agent_turn(input_items, instr, tools or None)
             try:
-                _record_usage(meta["user_id"], "codex", getattr(cp, "default_model", "codex"),
+                _record_usage(meta["user_id"], getattr(cp, "name", "codex"), getattr(cp, "default_model", "codex"),
                               _est_tokens(instr) + sum(_est_tokens(json.dumps(it, ensure_ascii=False)) for it in input_items),
                               _est_tokens(turn.get("text", "")), "chat")
             except Exception:
@@ -1902,7 +1914,7 @@ def _flow_ai_context(user_id):
 
 
 def _ai_complete_flow(sys_msg, user_msg, ags, old_pos=None, _uid=DEFAULT_USER):
-    raw = providers.CodexProvider().complete(
+    raw = _agent_provider().complete(
         [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}]).text
     try:
         _record_usage(_uid, "codex", os.environ.get("CODEX_MODEL", "gpt-5.4-mini"),
@@ -2188,8 +2200,9 @@ def chat(req: ChatReq, actor: str = Depends(_need("agent.use"))):
     req.user_id = actor                          # identité = jeton (pas le corps client)
     provider = req.provider or os.environ.get("ELYTRAS_PROVIDER", "codex")
 
-    # Providers non-codex : chat simple (sans outils pour l'instant).
-    if provider != "codex":
+    # Providers SANS appel d'outils (openai/ollama/claude bruts) : chat simple.
+    # Codex ET passerelle (elytras-gateway) passent par la boucle AGENTIQUE (outils).
+    if provider not in ("codex", "elytras-gateway", "gateway"):
         try:
             c = gateway.complete(req.messages, provider=provider, model=req.model,
                                  user_id=req.user_id, tenant_id=DEFAULT_TENANT)
@@ -2198,7 +2211,7 @@ def chat(req: ChatReq, actor: str = Depends(_need("agent.use"))):
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=502)
 
-    # Codex AGENTIQUE : orchestre (run_agent = mémoire + outils MCP + skills + délégation) + audit.
+    # AGENTIQUE (Codex OU passerelle) : orchestre (mémoire + outils MCP + skills + délégation) + audit.
     sess = sessions.get_session(req.user_id, req.session_id) if req.session_id else None
     if sess and sess.get("scope") == "projet":
         mscope, mowner, mproj = "project", None, sess.get("project_id")
@@ -2219,7 +2232,7 @@ def chat(req: ChatReq, actor: str = Depends(_need("agent.use"))):
         return {"role": "assistant", "status": "confirm", "pending_id": res["pending_id"],
                 "confirm": res["confirm"], "agent": agent["name"], "attachments": res.get("attachments") or [],
                 "content": "⏸ Validation requise : " + res["confirm"]["summary"]}
-    return {"role": "assistant", "content": res["answer"], "provider": "codex",
+    return {"role": "assistant", "content": res["answer"], "provider": provider,
             "agent": agent["name"], "tools_used": res["used"], "attachments": res.get("attachments") or []}
 
 
@@ -2238,7 +2251,8 @@ def chat_confirm(req: ChatConfirmReq, actor: str = Depends(_need("agent.use"))):
         return {"role": "assistant", "status": "confirm", "pending_id": res["pending_id"],
                 "confirm": res["confirm"], "attachments": res.get("attachments") or [],
                 "content": "⏸ Validation requise : " + res["confirm"]["summary"]}
-    return {"role": "assistant", "content": res["answer"], "provider": "codex",
+    return {"role": "assistant", "content": res["answer"],
+            "provider": os.environ.get("ELYTRAS_PROVIDER", "codex"),
             "tools_used": res["used"], "attachments": res.get("attachments") or []}
 
 
