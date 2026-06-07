@@ -17,7 +17,9 @@ cd deploy/vm
 ./provision-multipass.sh elytras-client1
 ```
 
-Le script crée la VM, installe Docker, et y copie Elytras (sans tes secrets ni environnements Python).
+Le script crée la VM, installe Docker, **clone le dépôt public** Elytras, et **active la mise à jour
+automatique** (un cron qui, toutes les 10 min, récupère les nouveaux commits et rebuild s'il y a du
+nouveau). Pour désactiver : `./provision-multipass.sh garage-martin --no-auto`.
 
 ## 3. Déployer dans la VM
 
@@ -32,6 +34,16 @@ ou via `multipass list`).
 
 > Astuce : pour tester le **mode Codex** (login OAuth en loopback) depuis ton Mac vers la VM,
 > ouvre un tunnel : `multipass exec elytras-client1 -- ...` ou un `ssh -L` vers l'IP de la VM.
+
+## Mises à jour
+
+- **Automatique** : une fois que tu as fait `git push` (depuis ton Mac), la VM se met à jour seule
+  sous ~10 min (pull + rebuild si nouveaux commits). Journal dans la VM : `~/elytras-update.log`.
+- **À la demande** (depuis ton Mac) : `./update.sh garage-martin` (pull + rebuild immédiat).
+- Ta config (`deploy/.env`) et tes données (volumes Docker) sont **préservées** à chaque mise à jour.
+
+> Le flux complet : je committe → **tu pousses** (`git push` depuis ton Mac, instantané après `gh auth login`)
+> → la VM récupère et se rebuild toute seule.
 
 ## 4. Plusieurs « clients »
 
