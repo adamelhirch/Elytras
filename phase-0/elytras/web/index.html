@@ -35,10 +35,14 @@
   .nav-item.active{background:var(--acc-weak);color:var(--acc);border-color:var(--acc-weak);font-weight:600}
   .nav-item.active .ic{filter:none}
   .nav-spacer{flex:1}
-  .content{display:block;flex:1;min-width:0;padding:24px 28px;max-width:none;margin:0}
+  .content{display:flex;flex-direction:column;flex:1;min-width:0;padding:24px 28px;max-width:none;margin:0}
   /* ── Sections (vues) ── */
   .view{display:none;animation:viewfade .18s ease}
   .view.active{display:block}
+  /* Une vue « pleine page » (ex : Workflows) remplit toute la zone de contenu */
+  .view.is-page.active{display:flex;flex-direction:column;flex:1;min-height:0}
+  /* Quand la vue active est une page plein écran, on retire le padding du conteneur */
+  .content.page-mode{padding:0}
   @keyframes viewfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
   .view-head{display:flex;align-items:center;gap:10px;margin:0 0 18px}
   .view-head h2.view-title{font-size:20px;font-weight:700;margin:0;letter-spacing:.2px;text-transform:none;color:var(--txt)}
@@ -46,6 +50,51 @@
   .view-head .sub{color:var(--muted);font-size:13px}
   .view-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
   .view-grid.one{grid-template-columns:1fr;max-width:760px}
+  /* ── Pattern de PAGE plein écran réutilisable (.page / toolbar / tabs / body / panel) ── */
+  .page{display:flex;flex-direction:column;flex:1;min-height:0;background:var(--bg)}
+  .page-head{display:flex;align-items:center;gap:12px;padding:16px 26px 0;flex:none}
+  .page-head .ic{font-size:22px;flex:none}
+  .page-head h2{font-size:19px;font-weight:700;margin:0;letter-spacing:.2px}
+  .page-head .sub{color:var(--muted);font-size:13px}
+  .page-head .sp{flex:1}
+  .tabs{display:flex;gap:4px;padding:10px 26px 0;border-bottom:1px solid var(--line);flex:none}
+  .tab{appearance:none;background:transparent;color:var(--muted);border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 14px 11px;font-size:13.5px;font-weight:600;cursor:pointer;transition:color .12s,border-color .12s}
+  .tab:hover{color:var(--txt);filter:none}
+  .tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+  .page-body{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+  .page-panel{display:none;flex:1;min-height:0;flex-direction:column}
+  .page-panel.active{display:flex}
+  .page-panel.scroll{overflow:auto;padding:20px 26px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  /* ── Espace de travail Workflows (éditeur) ── */
+  .flow-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 26px;border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+  .flow-toolbar .grow{flex:1}
+  .flow-toolbar .ftname{max-width:230px;font-weight:600}
+  .flow-stage{flex:1;min-height:0;display:flex;gap:0;position:relative}
+  .flow-canvas-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+  .flow-crumb{padding:8px 18px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:none}
+  .flow-canvas{flex:1;min-height:0;overflow:auto;position:relative;
+    background:
+      linear-gradient(var(--line) 1px,transparent 1px) 0 0/22px 22px,
+      linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/22px 22px,
+      var(--panel2);
+    background-blend-mode:normal}
+  #flow_svg{display:block;min-width:560px}
+  .flow-palette{display:flex;gap:6px;flex-wrap:wrap;padding:9px 18px;border-top:1px solid var(--line);background:var(--panel);flex:none}
+  .flow-side{width:340px;flex:none;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+  .flow-side-head{display:flex;align-items:center;gap:6px;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;flex:none}
+  #flow_inspector{flex:1;min-height:0;overflow:auto;padding:12px 14px}
+  #flow_panel:empty{display:none}
+  #flow_panel{padding:0 18px}
+  /* tiroir de résultats d'exécution (bas, repliable) */
+  .flow-drawer{border-top:1px solid var(--line);background:var(--panel);flex:none;max-height:42%;display:flex;flex-direction:column;min-height:0}
+  .flow-drawer summary{cursor:pointer;list-style:none;padding:9px 18px;font-size:12.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;user-select:none}
+  .flow-drawer summary::-webkit-details-marker{display:none}
+  .flow-drawer summary::before{content:'▸';transition:transform .15s}
+  .flow-drawer[open] summary::before{transform:rotate(90deg)}
+  .flow-drawer[open]{overflow:auto}
+  #flow_run_out{padding:0 18px 14px}
+  .flow-empty{padding:40px 26px;color:var(--muted);font-size:13.5px}
   main{max-width:1180px;margin:0 auto;padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
   .card.full{grid-column:1/-1}
@@ -84,6 +133,11 @@
     .nav-item .label{display:none}
     .nav-item .ic{font-size:18px}
     .content{padding:18px 16px}
+    .content.page-mode{padding:0}
+    .flow-stage{flex-direction:column}
+    .flow-side{width:auto;border-left:0;border-top:1px solid var(--line);max-height:46%}
+    #flow_inspector{max-height:none}
+    .page-head,.tabs,.flow-toolbar{padding-left:16px;padding-right:16px}
   }
   @media(max-width:780px){main{grid-template-columns:1fr}}
 </style>
@@ -330,34 +384,59 @@
   </section>
   <!-- ════════ FIN VUE PLANIFICATEUR ════════ -->
 
-  <!-- ════════ VUE : WORKFLOWS ════════ -->
-  <section class="view" id="view-workflows" data-view="workflows">
-    <div class="view-head"><span class="ic">🔀</span><h2 class="view-title">Workflows</h2><span class="sub">Éditeur de flows et suivi des tâches</span></div>
-    <div class="view-grid one">
+  <!-- ════════ VUE : WORKFLOWS (page plein écran + onglets) ════════ -->
+  <section class="view is-page" id="view-workflows" data-view="workflows">
+    <div class="page">
+      <div class="page-head">
+        <span class="ic">🔀</span>
+        <h2>Workflows</h2>
+        <span class="sub">Éditeur de flows, exécutions et déclencheurs</span>
+      </div>
+      <div class="tabs" id="flow_tabs">
+        <button class="tab active" data-flowtab="editor"   onclick="flowTab('editor')">Éditeur</button>
+        <button class="tab"        data-flowtab="runs"     onclick="flowTab('runs')">Exécutions</button>
+        <button class="tab"        data-flowtab="triggers" onclick="flowTab('triggers')">Déclencheurs</button>
+      </div>
+      <div class="page-body">
 
-  <section class="card full">
-    <h2>Flows (workflows)</h2>
-    <p class="sm muted">Éditeur façon Windmill : canvas glisser-déposer, étapes IA / outil MCP / code Python / boucles / branches / approbation. Référence les sorties via <code>{{ flow_input.x }}</code> et <code>{{ results.idEtape }}</code>. Déclenche à la main, par webhook ou par planif.</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-      <select id="flow_select" onchange="openFlow(this.value)" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px;max-width:240px"></select>
-      <input id="new_flow_name" placeholder="nom du nouveau flow" style="max-width:200px">
-      <button class="ghost sm" data-cap="flow.create" style="padding:5px 10px" onclick="createFlow()">+ Flow</button>
-      <button class="ghost sm" data-cap="flow.create" style="padding:5px 10px" onclick="generateFlow()" title="Décris un workflow en langage naturel, l'IA le construit">✨ Générer (IA)</button>
-    </div>
-    <div id="flow_editor"></div>
-  </section>
+        <!-- ─── Onglet ÉDITEUR ─── -->
+        <div class="page-panel active" id="flowpane-editor" data-flowpane="editor">
+          <div class="flow-toolbar">
+            <select id="flow_select" onchange="openFlow(this.value)" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px;max-width:220px"></select>
+            <input id="new_flow_name" placeholder="nom du nouveau flow" style="max-width:180px">
+            <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="createFlow()">+ Flow</button>
+            <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="generateFlow()" title="Décris un workflow en langage naturel, l'IA le construit">✨ Générer (IA)</button>
+            <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
+            <span id="flow_toolbar_actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1"></span>
+          </div>
+          <div id="flow_editor" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>
+        </div>
 
-  <section class="card full">
-    <h2>Tâches</h2>
-    <p class="sm muted">Suivi des tâches (flows, planifications) et de leur avancement — kanban.</p>
-    <div style="margin-bottom:8px"><button class="ghost sm" style="padding:5px 10px" onclick="loadTasks();loadAudit()">↻ Rafraîchir</button></div>
-    <div id="kanban" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"></div>
-    <details style="margin-top:12px">
-      <summary class="sm muted" style="cursor:pointer">Activité détaillée (qui a fait quoi, commandé par qui)</summary>
-      <div id="audit" class="sm" style="margin-top:8px"></div>
-    </details>
-  </section>
+        <!-- ─── Onglet EXÉCUTIONS ─── -->
+        <div class="page-panel scroll" id="flowpane-runs" data-flowpane="runs">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <h2 class="view-title" style="font-size:16px;margin:0">Tâches &amp; exécutions</h2>
+            <span class="sub">Suivi des flows et planifications — kanban</span>
+            <span style="flex:1"></span>
+            <button class="ghost sm" style="padding:6px 12px" onclick="loadTasks();loadAudit()">↻ Rafraîchir</button>
+          </div>
+          <div id="kanban" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"></div>
+          <details style="margin-top:16px">
+            <summary class="sm muted" style="cursor:pointer">Activité détaillée (qui a fait quoi, commandé par qui)</summary>
+            <div id="audit" class="sm" style="margin-top:8px"></div>
+          </details>
+        </div>
 
+        <!-- ─── Onglet DÉCLENCHEURS ─── -->
+        <div class="page-panel scroll" id="flowpane-triggers" data-flowpane="triggers">
+          <div style="max-width:720px">
+            <h2 class="view-title" style="font-size:16px;margin:0 0 4px">Déclencheurs du flow</h2>
+            <p class="sm muted" style="margin-top:0">Webhook et planification du flow sélectionné dans l'éditeur. Choisis d'abord un flow.</p>
+            <div id="flow_triggers"></div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </section>
   <!-- ════════ FIN VUE WORKFLOWS ════════ -->
@@ -613,6 +692,10 @@ function showSection(name){
   currentSection=name;
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.getAttribute('data-view')===name));
   document.querySelectorAll('.nav-item').forEach(it=>it.classList.toggle('active', it.getAttribute('data-section')===name));
+  // page plein écran : retire le padding du conteneur si la vue active est une « .is-page »
+  const activeView=document.querySelector('.view[data-view="'+name+'"]');
+  const isPage=!!(activeView&&activeView.classList.contains('is-page'));
+  const content=document.querySelector('.content'); if(content) content.classList.toggle('page-mode', isPage);
   try{ localStorage.setItem('elytras_section',name); }catch(e){}
   if(typeof window!=='undefined') window.scrollTo&&window.scrollTo(0,0);
   onSectionShown(name);
@@ -623,7 +706,7 @@ function onSectionShown(name){
     if(name==='profile') loadProfile();
     else if(name==='admin' && (window._caps||[]).includes('admin')) loadAdmin();
     else if(name==='observability'){ loadObs(); loadAudit(); }
-    else if(name==='workflows'){ loadFlows(); loadTasks(); }
+    else if(name==='workflows'){ loadFlows(); loadTasks(); renderFlow(); renderTriggers(); setTimeout(sizeFlowCanvas,0); }
     else if(name==='files') loadFiles();
     else if(name==='connectors'){ loadServers(); loadSkills(); }
     else if(name==='providers') loadProviders();
@@ -1105,14 +1188,14 @@ async function editFlowAI(){
   banner('Modification du flow par IA…','ok');
   const d=await jpost('/flows/'+currentFlow.id+'/edit-ai',{instruction:ins.trim()});
   if(d.error){banner(d.error,'ko');return}
-  currentFlow=d; flowPath=[]; selNode=null; renderFlow();
+  currentFlow=d; flowPath=[]; selNode=null; renderFlow(); renderTriggers();
   banner('Flow modifié ✓ — vérifie le résultat avant d\'exécuter.','ok');
 }
 async function openFlow(fid){
-  if(!fid){currentFlow=null;$('#flow_editor').innerHTML='';return}
+  if(!fid){currentFlow=null; renderFlow(); renderTriggers(); return}
   currentFlow=await jget('/flows/'+fid); flowPath=[]; selNode=null; lastResults={}; flowPanel=null;
   if($('#flow_select')) $('#flow_select').value=fid;
-  renderFlow();
+  renderFlow(); renderTriggers();
 }
 
 // — navigation dans les conteneurs (boucles / branches) —
@@ -1152,41 +1235,77 @@ function breadcrumb(){
 function nodePos(m,i){ const pos=(currentFlow.ui&&currentFlow.ui.pos)||{}; return pos[m.id]||{x:40,y:30+i*86}; }
 function setPos(id,x,y){ currentFlow.ui=currentFlow.ui||{pos:{}}; currentFlow.ui.pos=currentFlow.ui.pos||{}; currentFlow.ui.pos[id]={x,y}; }
 
-function renderFlow(){
-  const f=currentFlow; if(!f){$('#flow_editor').innerHTML='';return}
-  const mods=levelModules();
+function flowSvgH(mods){
   let maxY=160; mods.forEach((m,i)=>{const p=nodePos(m,i); maxY=Math.max(maxY,p.y+NODE_H+40);});
-  const H=Math.max(380,maxY);
+  return Math.max(420,maxY);
+}
+// Ajuste la hauteur du SVG pour remplir le canvas dispo (sinon = hauteur du contenu)
+function sizeFlowCanvas(){
+  const wrap=$('#flow_canvas'), svg=$('#flow_svg'); if(!wrap||!svg||!currentFlow)return;
+  const content=flowSvgH(levelModules());
+  const avail=Math.max(420, wrap.clientHeight - 2);
+  svg.setAttribute('height', Math.max(content, avail));
+}
+window.addEventListener('resize', ()=>sizeFlowCanvas());
+
+function renderFlow(){
+  const f=currentFlow;
+  const acts=$('#flow_toolbar_actions');
+  if(!f){
+    if(acts) acts.innerHTML='';
+    const ed=$('#flow_editor');
+    if(ed) ed.innerHTML=`<div class="flow-empty">Choisis un flow dans la liste ci-dessus, ou crée-en un nouveau (✨ Générer le construit pour toi). L'éditeur canvas s'ouvre ici en plein écran.</div>`;
+    return;
+  }
+  const mods=levelModules();
   const palette=['agent','tool','code','note','forloop','whileloop','branchone','branchall']
     .map(t=>`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('${t}')">+ ${TYPE_META[t].icon} ${TYPE_META[t].label}</button>`).join('');
-  $('#flow_editor').innerHTML=`
-   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-     <input value="${esc(f.name)}" onchange="currentFlow.name=this.value" style="max-width:220px;font-weight:600">
+  // — barre d'outils (haut de page) : nom + actions du flow courant —
+  if(acts) acts.innerHTML=`
+     <input value="${esc(f.name)}" onchange="currentFlow.name=this.value" class="ftname" placeholder="nom du flow">
      <button onclick="saveFlow()">💾 Enregistrer</button>
      <button class="ghost sm" onclick="editFlowAI()" title="Décris une modification, l'IA l'applique">✨ Modifier (IA)</button>
      <button class="ghost sm" onclick="toggleFlowPanel('inputs')">⌨ Entrées (${(f.inputs||[]).length})</button>
-     <button class="ghost sm" onclick="toggleFlowPanel('triggers')">⚡ Déclencheurs</button>
-     <span style="flex:1"></span>
-     <a href="#" style="color:#dc2626" onclick="deleteFlow();return false">supprimer</a>
-   </div>
-   <div class="sm muted" style="margin-bottom:6px">${breadcrumb()}</div>
-   <div id="flow_panel"></div>
-   <div style="display:flex;gap:10px;align-items:flex-start">
-     <div style="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;background:#ffffff;overflow:auto;max-height:540px">
-       <svg id="flow_svg" width="100%" height="${H}" style="display:block;min-width:520px">
-         <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b6bcc6"/></marker></defs>
-         ${edgesSVG(mods)}
-         ${mods.map((m,i)=>nodeSVG(m,i)).join('')}
-         ${mods.length?'':'<text x="28" y="40" fill="#666" font-size="13">Canvas vide — ajoute une étape ci-dessous ↓</text>'}
-       </svg>
+     <button class="ghost sm" onclick="flowTab('triggers')" title="Webhook & planification">⚡ Déclencheurs</button>
+     <button onclick="runFlowUI(false)">▶ Exécuter</button>
+     <span class="grow"></span>
+     <a href="#" style="color:#dc2626" onclick="deleteFlow();return false">supprimer</a>`;
+  // — corps de l'éditeur : canvas plein écran + inspecteur + tiroir de résultats —
+  $('#flow_editor').innerHTML=`
+   <div class="flow-stage">
+     <div class="flow-canvas-wrap">
+       <div class="flow-crumb">${breadcrumb()}</div>
+       <div id="flow_panel"></div>
+       <div class="flow-canvas" id="flow_canvas">
+         <svg id="flow_svg" width="100%" height="${flowSvgH(mods)}">
+           <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b6bcc6"/></marker></defs>
+           ${edgesSVG(mods)}
+           ${mods.map((m,i)=>nodeSVG(m,i)).join('')}
+           ${mods.length?'':'<text x="28" y="40" fill="#666" font-size="13">Canvas vide — ajoute une étape via la palette ↓</text>'}
+         </svg>
+       </div>
+       <div class="flow-palette">${palette}${flowPath.length?'':`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('approval')">+ ✋ Approbation</button>`}${branchTabs()}</div>
      </div>
-     <div id="flow_inspector" style="width:330px;flex:none">${inspectorHTML()}</div>
+     <div class="flow-side">
+       <div class="flow-side-head">🔎 Inspecteur</div>
+       <div id="flow_inspector">${inspectorHTML()}</div>
+     </div>
    </div>
-   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${palette}${flowPath.length?'':`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('approval')">+ ✋ Approbation</button>`}</div>
-   ${branchTabs()}
-   <div id="flow_runbar" style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">${runBar()}</div>
-   <div id="flow_run_out" class="sm" style="margin-top:8px"></div>`;
-  renderPanel(); attachDrag();
+   <details class="flow-drawer" id="flow_drawer" open>
+     <summary>▶ Exécution &amp; résultats</summary>
+     <div id="flow_runbar" style="padding:6px 18px 4px">${runBar()}</div>
+     <div id="flow_run_out" class="sm"></div>
+   </details>`;
+  renderPanel(); attachDrag(); sizeFlowCanvas();
+}
+
+// — onglets de la page Workflows —
+function flowTab(name){
+  document.querySelectorAll('#flow_tabs .tab').forEach(t=>t.classList.toggle('active', t.getAttribute('data-flowtab')===name));
+  document.querySelectorAll('#view-workflows .page-panel').forEach(p=>p.classList.toggle('active', p.getAttribute('data-flowpane')===name));
+  if(name==='editor') sizeFlowCanvas();
+  else if(name==='runs'){ loadTasks(); loadAudit(); }
+  else if(name==='triggers') renderTriggers();
 }
 
 function edgesSVG(mods){
@@ -1203,7 +1322,7 @@ function nodeSVG(m,i){
   const hasRes=Object.prototype.hasOwnProperty.call(lastResults,m.id);
   const sub=m.type==='agent'?(m.agent_id||''):m.type==='tool'?(m.tool||'outil'):m.type==='code'?'python':CONTAINERS.includes(m.type)?'double-clic : ouvrir':'';
   return `<g transform="translate(${p.x},${p.y})" data-id="${m.id}" class="flnode" style="cursor:grab">
-    <rect width="${NODE_W}" height="${NODE_H}" rx="9" fill="#eef1f5" stroke="${sel?'var(--accent)':'#d0d5dd'}" stroke-width="${sel?2:1}"/>
+    <rect width="${NODE_W}" height="${NODE_H}" rx="9" fill="${sel?'#fff':'#eef1f5'}" stroke="${sel?'var(--acc)':'#d0d5dd'}" stroke-width="${sel?2:1}"/>
     <rect width="4" height="${NODE_H}" rx="2" fill="${meta.color}"/>
     <text x="14" y="23" font-size="15">${meta.icon}</text>
     <text x="34" y="21" fill="#1f2533" font-size="12.5" font-weight="600">${esc(String(m.summary||meta.label)).slice(0,20)}</text>
@@ -1343,8 +1462,8 @@ function drillDefault(){ const m=findModule(selNode); if(m){flowPath.push({mid:m
 function branchTabs(){
   const m=lastContainer(); if(!m||(m.type!=='branchone'&&m.type!=='branchall'))return '';
   const cur=flowPath[flowPath.length-1].bi;
-  let tabs=(m.branches||[]).map((b,bi)=>`<button class="ghost sm" style="padding:3px 8px;${cur===bi?'border-color:var(--accent);color:var(--accent)':''}" onclick="switchBranch(${bi})">${esc(b.summary||('branche '+(bi+1)))}</button>`).join('');
-  if(m.type==='branchone') tabs+=`<button class="ghost sm" style="padding:3px 8px;${cur==='default'?'border-color:var(--accent);color:var(--accent)':''}" onclick="switchBranch('default')">défaut</button>`;
+  let tabs=(m.branches||[]).map((b,bi)=>`<button class="ghost sm" style="padding:3px 8px;${cur===bi?'border-color:var(--acc);color:var(--acc)':''}" onclick="switchBranch(${bi})">${esc(b.summary||('branche '+(bi+1)))}</button>`).join('');
+  if(m.type==='branchone') tabs+=`<button class="ghost sm" style="padding:3px 8px;${cur==='default'?'border-color:var(--acc);color:var(--acc)':''}" onclick="switchBranch('default')">défaut</button>`;
   return `<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span class="sm muted">Branche affichée :</span>${tabs}</div>`;
 }
 function switchBranch(bi){ flowPath[flowPath.length-1].bi=bi; selNode=null; renderFlow(); }
@@ -1370,9 +1489,9 @@ function mEditP(o,k,v){ const m=findModule(selNode); if(m){m[o]=m[o]||{}; m[o][k
 function mToggle(o,k,v){ mEditP(o,k,v); renderInspector(); }
 function mEditJSON(k,v){ const m=findModule(selNode); if(!m)return; try{m[k]=JSON.parse(v||'{}')}catch(e){banner('JSON invalide','ko')} }
 
-// — panneaux entrées / déclencheurs —
+// — panneau entrées (tiroir dans l'éditeur) ; les déclencheurs ont leur propre onglet —
 function toggleFlowPanel(n){ flowPanel=flowPanel===n?null:n; renderPanel(); }
-function renderPanel(){ const el=$('#flow_panel'); if(!el)return; el.innerHTML=flowPanel==='inputs'?inputsPanel():flowPanel==='triggers'?triggersPanel():''; }
+function renderPanel(){ const el=$('#flow_panel'); if(!el)return; el.innerHTML=flowPanel==='inputs'?inputsPanel():''; sizeFlowCanvas(); }
 function inputsPanel(){
   const rows=(currentFlow.inputs||[]).map((it,i)=>`<div style="display:flex;gap:5px;margin-bottom:5px;align-items:center;flex-wrap:wrap">
     <input value="${esc(it.name||'')}" onchange="inEdit(${i},'name',this.value)" placeholder="nom" style="max-width:120px">
@@ -1389,16 +1508,25 @@ function inEdit(i,k,v){ currentFlow.inputs[i][k]=v; if(k==='name')renderFlow(); 
 function inEditOpts(i,v){ currentFlow.inputs[i].options=v.split(',').map(x=>x.trim()).filter(Boolean); }
 function inAdd(){ currentFlow.inputs=currentFlow.inputs||[]; currentFlow.inputs.push({name:'param'+(currentFlow.inputs.length+1),type:'string',default:'',required:false}); renderFlow(); }
 function inDel(i){ currentFlow.inputs.splice(i,1); renderFlow(); }
-function triggersPanel(){
+// — onglet « Déclencheurs » : webhook + planification du flow courant —
+function renderTriggers(){
+  const el=$('#flow_triggers'); if(!el)return;
+  if(!currentFlow){ el.innerHTML=`<div class="flow-empty" style="padding:24px 0">Aucun flow sélectionné. Ouvre un flow dans l'onglet <b>Éditeur</b> pour configurer ses déclencheurs.</div>`; return; }
   const wh=currentFlow.webhook_token?(location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token):null;
-  return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#f9fafb">
-    <div style="margin-bottom:8px"><b class="sm">⚡ Webhook</b><br>
-      ${wh?`<code class="sm" style="word-break:break-all">${esc(wh)}</code> <button class="ghost sm" onclick="copyWebhook()">copier</button>`:`<button class="ghost sm" onclick="genWebhook()">générer une URL webhook</button>`}
-      <div class="sm muted">POST JSON → exécute le flow (le corps JSON devient <code>flow_input</code>).</div></div>
-    <div><b class="sm">🗓 Planification</b><br><button class="ghost sm" onclick="scheduleFlow()">planifier ce flow…</button>
-      <span class="sm muted">crée une tâche planifiée quotidienne liée à ce flow.</span></div></div>`;
+  el.innerHTML=`<div class="panel" style="padding:16px;margin-bottom:14px">
+      <b>⚡ Webhook</b> <span class="pill">${esc(currentFlow.name)}</span>
+      <div style="margin-top:8px">
+        ${wh?`<code class="sm" style="word-break:break-all">${esc(wh)}</code> <button class="ghost sm" style="margin-left:6px" onclick="copyWebhook()">copier</button>`:`<button class="ghost sm" onclick="genWebhook()">générer une URL webhook</button>`}
+      </div>
+      <div class="sm muted" style="margin-top:6px">POST JSON sur cette URL → exécute le flow (le corps JSON devient <code>flow_input</code>).</div>
+    </div>
+    <div class="panel" style="padding:16px">
+      <b>🗓 Planification</b>
+      <div style="margin-top:8px"><button class="ghost sm" onclick="scheduleFlow()">planifier ce flow…</button></div>
+      <div class="sm muted" style="margin-top:6px">Crée une tâche planifiée (quotidienne ou cron) liée à ce flow. Retrouve et gère les planifications dans la section <b>Planificateur</b>.</div>
+    </div>`;
 }
-async function genWebhook(){ const d=await jpost('/flows/'+currentFlow.id+'/webhook-token',{}); currentFlow.webhook_token=d.token; renderPanel(); banner('Webhook généré.','ok'); }
+async function genWebhook(){ const d=await jpost('/flows/'+currentFlow.id+'/webhook-token',{}); currentFlow.webhook_token=d.token; renderTriggers(); banner('Webhook généré.','ok'); }
 function copyWebhook(){ const u=location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token; if(navigator.clipboard)navigator.clipboard.writeText(u); banner('URL copiée.','ok'); }
 async function scheduleFlow(){
   const cron=prompt('Expression cron (min h jour mois jour-semaine) — laisse vide pour un horaire quotidien :','');
@@ -1446,7 +1574,7 @@ async function saveFlow(){
   await jpatch('/flows/'+currentFlow.id,{name:currentFlow.name,summary:currentFlow.summary,inputs:currentFlow.inputs,modules:currentFlow.modules,ui:currentFlow.ui});
   banner('Flow enregistré.','ok'); loadFlows();
 }
-async function deleteFlow(){ if(!confirm('Supprimer ce flow ?'))return; await jdel('/flows/'+currentFlow.id); currentFlow=null; flowPath=[]; selNode=null; $('#flow_editor').innerHTML=''; loadFlows(); }
+async function deleteFlow(){ if(!confirm('Supprimer ce flow ?'))return; await jdel('/flows/'+currentFlow.id); currentFlow=null; flowPath=[]; selNode=null; if($('#flow_select'))$('#flow_select').value=''; renderFlow(); renderTriggers(); loadFlows(); }
 
 // ── Kanban des tâches ──
 async function loadTasks(){
