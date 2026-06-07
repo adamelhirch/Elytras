@@ -1208,7 +1208,7 @@ async function dlFile(id,name){
 }
 async function uploadFile(){
   const inp=$('#file_up'),f=inp.files&&inp.files[0]; if(!f){banner('Choisis un fichier.','ko');return}
-  if(f.size>1000000){banner('Fichier > 1 Mo (limite phase 0).','ko');return}
+  if(f.size>25*1024*1024){banner('Fichier trop volumineux (> 25 Mo).','ko');return}
   const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.readAsDataURL(f);});
   const scope=($('#file_scope')&&$('#file_scope').value)||'perso';
   const body={name:f.name,content_b64:b64,mime:f.type||'application/octet-stream',scope};

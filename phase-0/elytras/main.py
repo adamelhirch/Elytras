@@ -1438,7 +1438,7 @@ def _run_code(content, ns, timeout_s, meta=None):
     os.makedirs(outdir)
     for fname, frec in ((meta or {}).get("files") or {}).items():     # matérialise les fichiers d'entrée
         try:
-            raw = base64.b64decode((frec.get("b64") or "").encode())
+            raw = files.raw_bytes(frec)
             with open(os.path.join(indir, os.path.basename(frec.get("name") or fname)), "wb") as fh:
                 fh.write(raw)
         except Exception:
@@ -1999,8 +1999,7 @@ def _tg_deliver(token, chat_id, attachments, user_id):
     for att in attachments or []:
         f = files.get_file(att.get("id"), user_id, pids)
         if f:
-            telegram_send_document(token, chat_id, f.get("name", "fichier"),
-                                   base64.b64decode((f.get("b64") or "").encode()))
+            telegram_send_document(token, chat_id, f.get("name", "fichier"), files.raw_bytes(f))
 
 
 def _tg_session_get(chat_id):
@@ -2566,7 +2565,7 @@ def file_content_ep(fid: str, request: Request, actor: str = Depends(_need("file
     f = files.get_file(fid, actor, pids)
     if not f:
         return JSONResponse({"error": "fichier introuvable ou accès refusé"}, status_code=404)
-    raw = base64.b64decode((f.get("b64") or "").encode())
+    raw = files.raw_bytes(f)
     from fastapi.responses import Response
     return Response(content=raw, media_type=f.get("mime") or "application/octet-stream",
                     headers={"Content-Disposition": f'attachment; filename="{f.get("name", "fichier")}"'})

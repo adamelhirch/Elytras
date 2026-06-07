@@ -14,8 +14,46 @@ import uuid
 
 from . import filestore
 
-MAX_BYTES = 1_000_000   # 1 Mo (phase 0 : contenu en base64 dans l'état fichier)
+# Décodeur HEIC/HEIF (photos iPhone) pour PIL, si le paquet est présent.
+try:
+    import pillow_heif  # type: ignore
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
+
+MAX_BYTES = int(float(os.environ.get("ELYTRAS_MAX_FILE_MB", "25")) * 1024 * 1024)   # 25 Mo par défaut
 _META = ("name", "scope", "project_id", "owner_id", "size", "mime", "created_at")
+
+
+def _data_dir() -> str:
+    """Dossier des contenus de fichiers (sur DISQUE, hors état JSON pour ne pas l'alourdir)."""
+    d = os.environ.get("ELYTRAS_FILES_DIR")
+    if not d:
+        base = os.path.dirname(os.path.abspath(str(filestore._PATH))) or "."
+        d = os.path.join(base, "files_data")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def raw_bytes(f: dict) -> bytes:
+    """Octets bruts d'un fichier : depuis le disque (par id) ou le base64 hérité/en mémoire."""
+    if not f:
+        return b""
+    if f.get("b64"):
+        try:
+            return base64.b64decode(f["b64"].encode())
+        except Exception:
+            return b""
+    fid = f.get("id")
+    if fid:
+        p = os.path.join(_data_dir(), fid)
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as fh:
+                    return fh.read()
+            except Exception:
+                return b""
+    return b""
 
 
 def _accessible(f: dict, user_id: str, project_ids) -> bool:
@@ -37,14 +75,15 @@ def add_file(scope: str, owner_id, project_id, name: str, data_b64: str,
              mime: str = "application/octet-stream") -> str:
     raw = base64.b64decode((data_b64 or "").encode())
     if len(raw) > MAX_BYTES:
-        raise ValueError(f"fichier trop volumineux (> {MAX_BYTES // 1000} Ko)")
+        raise ValueError(f"fichier trop volumineux (> {MAX_BYTES // (1024 * 1024)} Mo)")
     scope = "projet" if scope == "projet" else "perso"
     fid = str(uuid.uuid4())
+    with open(os.path.join(_data_dir(), fid), "wb") as fh:        # contenu sur disque, hors état JSON
+        fh.write(raw)
     filestore.put("files", fid, {"name": name or "fichier", "scope": scope,
                                  "project_id": project_id if scope == "projet" else None,
                                  "owner_id": None if scope == "projet" else owner_id,
-                                 "size": len(raw), "mime": mime, "created_at": time.time(),
-                                 "b64": data_b64})
+                                 "size": len(raw), "mime": mime, "created_at": time.time()})
     return fid
 
 
@@ -64,14 +103,14 @@ def get_by_name(name: str, user_id: str, project_ids=None) -> dict | None:
 
 def text_of(f: dict) -> str:
     try:
-        return base64.b64decode((f.get("b64") or "").encode()).decode("utf-8", "replace")
+        return raw_bytes(f).decode("utf-8", "replace")
     except Exception:
         return ""
 
 
 # ── Extraction de contenu selon le type : PDF / Word / Excel / image (OCR) / texte ──
 _TEXT_EXT = (".txt", ".csv", ".tsv", ".md", ".json", ".log", ".xml", ".html", ".htm", ".yaml", ".yml")
-_IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".gif")
+_IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".gif", ".heic", ".heif")
 
 
 def _ocr_bytes(data: bytes) -> str:
@@ -80,6 +119,10 @@ def _ocr_bytes(data: bytes) -> str:
         import pytesseract
         from PIL import Image
         im = Image.open(io.BytesIO(data))
+        try:
+            im = im.convert("RGB")           # normalise (HEIF, RGBA, CMYK, P…) pour Tesseract
+        except Exception:
+            pass
         lang = os.environ.get("OCR_LANG", "fra+eng")
         try:
             return (pytesseract.image_to_string(im, lang=lang) or "").strip()
@@ -137,12 +180,27 @@ def _xlsx_text(raw: bytes) -> str:
         return f"[Échec de lecture de l'Excel : {e}]"
 
 
+def _pptx_text(raw: bytes) -> str:
+    try:
+        import pptx
+        prs = pptx.Presentation(io.BytesIO(raw))
+        out = []
+        for i, slide in enumerate(prs.slides, 1):
+            out.append(f"# Diapo {i}")
+            for shape in slide.shapes:
+                if getattr(shape, "has_text_frame", False):
+                    out.append(shape.text_frame.text)
+        return "\n".join(x for x in out if x).strip()
+    except Exception as e:  # noqa: BLE001
+        return f"[Échec de lecture du PowerPoint : {e}]"
+
+
 def extract_text(f: dict) -> str:
     """Extrait le TEXTE d'un fichier selon son type. En cas d'impossibilité, renvoie un
     message clair entre crochets (jamais d'invention)."""
     if not f:
         return ""
-    raw = base64.b64decode((f.get("b64") or "").encode())
+    raw = raw_bytes(f)
     name = (f.get("name") or "").lower()
     mime = (f.get("mime") or "").lower()
     if name.endswith(_TEXT_EXT) or mime.startswith("text/") or "json" in mime:
@@ -153,6 +211,8 @@ def extract_text(f: dict) -> str:
         return _docx_text(raw)
     if name.endswith((".xlsx", ".xlsm")) or "spreadsheetml" in mime:
         return _xlsx_text(raw)
+    if name.endswith(".pptx") or "presentationml" in mime:
+        return _pptx_text(raw)
     if name.endswith(_IMG_EXT) or mime.startswith("image/"):
         return _ocr_bytes(raw) or f"[Image « {f.get('name')} » — aucun texte détecté par l'OCR.]"
     try:
@@ -166,4 +226,10 @@ def delete_file(fid: str, user_id: str, project_ids=None) -> bool:
     f = filestore.items("files").get(fid)
     if not f or not _accessible(f, user_id, project_ids):
         return False
+    try:
+        p = os.path.join(_data_dir(), fid)
+        if os.path.exists(p):
+            os.remove(p)
+    except Exception:
+        pass
     return filestore.delete("files", fid)

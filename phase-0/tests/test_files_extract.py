@@ -65,3 +65,32 @@ def test_scanned_pdf_ocr_or_honest():
     t = F.extract_text(_file("scan.pdf", buf.getvalue(), "application/pdf")).upper()
     # soit l'OCR récupère le texte, soit message honnête « scanné » — jamais d'invention
     assert "ETIQUETTE" in t or "PDF" in t
+
+
+def test_disk_storage_roundtrip_large(state):
+    blob = bytes(2 * 1024 * 1024)                          # 2 Mo (au-delà de l'ancienne limite 1 Mo)
+    fid = F.add_file("perso", "u1", None, "gros.bin", base64.b64encode(blob).decode())
+    meta = F.get_file(fid, "u1")
+    assert meta and "b64" not in meta and meta["size"] == len(blob)   # contenu hors état JSON
+    assert F.raw_bytes(meta) == blob                                  # relu depuis le disque
+
+
+def test_heic_ocr():
+    import pillow_heif  # noqa: F401
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (600, 160), "white")
+    ImageDraw.Draw(img).text((20, 50), "DEVIS", fill="black", font=_font())
+    buf = io.BytesIO()
+    img.save(buf, format="HEIF")
+    t = F.extract_text(_file("photo.heic", buf.getvalue(), "image/heic")).upper()
+    assert "DEVIS" in t
+
+
+def test_pptx():
+    import pptx
+    prs = pptx.Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    slide.shapes.title.text = "Présentation Vanille"
+    buf = io.BytesIO()
+    prs.save(buf)
+    assert "Vanille" in F.extract_text(_file("p.pptx", buf.getvalue()))
