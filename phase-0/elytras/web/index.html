@@ -176,16 +176,52 @@
     <h2>Agents (orchestre)</h2>
     <p class="sm muted">L'orchestrateur reçoit ta demande et délègue aux agents spécialisés si besoin.</p>
     <div id="agents_list" class="sm"><span class="muted">…</span></div>
-    <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="ag_name" placeholder="nom de l'agent" style="max-width:160px">
-      <input id="ag_instr" placeholder="instructions / rôle de l'agent" style="flex:1;min-width:200px">
-      <select id="ag_autonomy" title="autonomie" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px">
-        <option value="ask">✋ validation</option>
-        <option value="auto">⚡ auto</option>
-      </select>
-      <button class="ghost sm" data-cap="agent.manage" style="padding:5px 10px" onclick="createAgent()">+ Agent</button>
+    <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+      <button class="ghost sm" data-cap="agent.manage" style="padding:6px 12px" onclick="openAgentEditor()">+ Créer un agent</button>
     </div>
   </section>
+
+  <!-- Éditeur d'agent détaillé -->
+  <div id="ae_overlay" style="display:none;position:fixed;inset:0;background:rgba(20,25,40,.45);z-index:50;align-items:flex-start;justify-content:center;overflow:auto;padding:24px">
+    <div class="card" style="max-width:640px;width:100%;margin:0">
+      <h2 id="ae_title" style="margin-top:0">Créer un agent</h2>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="ae_emoji" placeholder="🙂" maxlength="2" style="width:48px;text-align:center">
+        <input id="ae_name" placeholder="Nom de l'agent" style="flex:1">
+        <input id="ae_color" type="color" value="#4f46e5" title="couleur" style="width:42px;height:34px;padding:2px">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <input id="ae_role" placeholder="rôle (ex. Support client)" style="flex:1;min-width:140px">
+        <select id="ae_tier" title="gamme IA" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px">
+          <option value="eco">Éco (pas cher)</option><option value="standard" selected>Standard</option><option value="max">Max (puissant)</option>
+        </select>
+        <select id="ae_autonomy" title="autonomie" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px">
+          <option value="ask">✋ validation</option><option value="auto">⚡ auto</option>
+        </select>
+      </div>
+      <input id="ae_desc" placeholder="description courte (à quoi sert cet agent)" style="width:100%;margin-bottom:8px">
+      <label class="sm muted">Instructions / persona — ce que l'agent est, son ton, ses objectifs</label>
+      <textarea id="ae_instr" rows="6" placeholder="Tu es l'agent… Tu fais… Ton ton est…" style="width:100%;margin:4px 0 8px;font-family:inherit"></textarea>
+      <input id="ae_greeting" placeholder="message d'accueil (optionnel)" style="width:100%;margin-bottom:10px">
+      <div class="sm muted" style="margin-bottom:4px">Outils autorisés pour cet agent <span style="opacity:.7">(en plus des droits du rôle de l'utilisateur)</span> :</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-bottom:10px" class="sm">
+        <label><input type="checkbox" id="ae_t_files" checked> Fichiers (lire / écrire)</label>
+        <label><input type="checkbox" id="ae_t_flows" checked> Workflows (créer / lancer)</label>
+        <label><input type="checkbox" id="ae_t_web" checked> Naviguer le web</label>
+        <label><input type="checkbox" id="ae_t_mcp" checked> Connecteurs (MCP)</label>
+        <label><input type="checkbox" id="ae_t_skills" checked> Savoir-faire (skills)</label>
+        <label><input type="checkbox" id="ae_t_delegate" checked> Déléguer à d'autres agents</label>
+        <label><input type="checkbox" id="ae_t_dispatch" checked> Notifier des utilisateurs</label>
+      </div>
+      <div id="ae_botline" style="display:none;margin-bottom:10px">
+        <input id="ae_bot" placeholder="token du bot Telegram (laisser vide = inchangé)" style="width:100%">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="ghost sm" onclick="closeAgentEditor()" style="padding:6px 12px">Annuler</button>
+        <button class="sm" onclick="saveAgent()" style="padding:6px 14px;background:var(--acc);color:#fff;border:none;border-radius:8px;cursor:pointer">Enregistrer</button>
+      </div>
+    </div>
+  </div>
 
   <section class="card full">
     <h2>Planificateur</h2>
@@ -686,9 +722,10 @@ async function loadAgents(){
     const toggle=`<a href="#" onclick="toggleAutonomy('${a.id}','${auto?'ask':'auto'}');return false">${auto?'exiger validation':'passer en auto'}</a>`;
     const bot=a.has_bot?'<span class="pill" style="color:#3ecf8e">🤖 Telegram</span>':'';
     const botcfg=(window._caps||[]).includes('agent.manage')?` · <a href="#" onclick="setBot('${a.id}',${a.has_bot?'true':'false'});return false">${a.has_bot?'bot ✎':'+ bot Telegram'}</a>`:'';
+    const edit=(window._caps||[]).includes('agent.manage')?` · <a href="#" onclick="openAgentEditor('${a.id}');return false">✎ éditer</a>`:'';
     return `<div class="row">
-      <b style="font-weight:500">${esc(a.name)}</b> ${a.role?`<span class="pill">${esc(a.role)}</span>`:''} ${badge} ${bot}
-      <span class="det">${esc((a.instructions||'').slice(0,70))} · ${toggle}${botcfg} ${a.builtin?'':'· <a href="#" style="color:#dc2626" onclick="deleteAgent(\''+a.id+'\');return false">suppr</a>'}</span>
+      ${a.emoji?`<span>${esc(a.emoji)}</span> `:''}<b style="font-weight:500">${esc(a.name)}</b> ${a.role?`<span class="pill">${esc(a.role)}</span>`:''} ${a.tier?`<span class="pill" title="gamme IA">${esc(a.tier)}</span>`:''} ${badge} ${bot}
+      <span class="det">${esc((a.instructions||'').slice(0,70))} · ${toggle}${botcfg}${edit} ${a.builtin?'':'· <a href="#" style="color:#dc2626" onclick="deleteAgent(\''+a.id+'\');return false">suppr</a>'}</span>
     </div>`;}).join('');
 }
 async function toggleAutonomy(id,mode){ await jpatch('/agents/'+id,{autonomy:mode}); loadAgents(); banner('Autonomie : '+(mode==='auto'?'auto (agit sans demander)':'validation requise'),'ok'); }
@@ -701,10 +738,30 @@ async function setMyTelegram(){
   const v=prompt('Ton identifiant Telegram numérique (obtiens-le via @userinfobot, ou écris à ton bot) — il sert à router tes messages en gardant ton périmètre :',cur);
   if(v===null)return; await jpost('/me/telegram',{telegram_id:v.trim()}); if(window._me)window._me.telegram_id=v.trim(); banner('Telegram lié à ton compte.','ok');
 }
-async function createAgent(){
-  const name=$('#ag_name').value.trim(); if(!name){banner('Nom requis.','ko');return}
-  await jpost('/agents',{name,instructions:$('#ag_instr').value.trim(),autonomy:($('#ag_autonomy')&&$('#ag_autonomy').value)||'ask'});
-  $('#ag_name').value='';$('#ag_instr').value=''; loadAgents(); banner('Agent créé.','ok');
+let _agEdit=null; const AE_FAMS=['files','flows','web','mcp','skills','delegate','dispatch'];
+function openAgentEditor(id){
+  _agEdit=id||null;
+  const a=(window._agents||[]).find(x=>x.id===id)||{}; const t=a.tools||{};
+  $('#ae_title').textContent=id?('Éditer · '+(a.name||'')):'Créer un agent';
+  $('#ae_emoji').value=a.emoji||''; $('#ae_name').value=a.name||''; $('#ae_color').value=a.color||'#4f46e5';
+  $('#ae_role').value=a.role||''; $('#ae_desc').value=a.description||'';
+  $('#ae_tier').value=a.tier||'standard'; $('#ae_autonomy').value=a.autonomy||'ask';
+  $('#ae_instr').value=a.instructions||''; $('#ae_greeting').value=a.greeting||'';
+  AE_FAMS.forEach(f=>{const el=$('#ae_t_'+f); if(el)el.checked=(t[f]!==false);});
+  $('#ae_bot').value=''; $('#ae_botline').style.display=id?'':'none';
+  $('#ae_overlay').style.display='flex';
+}
+function closeAgentEditor(){ $('#ae_overlay').style.display='none'; }
+async function saveAgent(){
+  const name=$('#ae_name').value.trim(); if(!name){banner('Nom requis.','ko');return}
+  const tools={}; AE_FAMS.forEach(f=>{const el=$('#ae_t_'+f); tools[f]=el?el.checked:true;});
+  const body={name,role:$('#ae_role').value.trim(),description:$('#ae_desc').value.trim(),
+    instructions:$('#ae_instr').value.trim(),autonomy:$('#ae_autonomy').value,tier:$('#ae_tier').value,
+    emoji:$('#ae_emoji').value.trim(),color:$('#ae_color').value,greeting:$('#ae_greeting').value.trim(),
+    tools,can_delegate:tools.delegate};
+  if(_agEdit){ await jpatch('/agents/'+_agEdit,body); const bt=$('#ae_bot').value.trim(); if(bt){await jpatch('/agents/'+_agEdit,{telegram_token:bt});} }
+  else { await jpost('/agents',body); }
+  closeAgentEditor(); loadAgents(); banner('Agent enregistré.','ok');
 }
 async function deleteAgent(id){ if(!confirm('Supprimer cet agent ?'))return; await jdel('/agents/'+id); loadAgents(); }
 async function loadSchedules(){

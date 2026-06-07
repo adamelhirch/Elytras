@@ -873,10 +873,19 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
         instr = ("CONTEXTE DE L'ENTREPRISE (fourni par l'administration, LECTURE SEULE — ne le modifie jamais, "
                  "ne le contredis pas) :\n" + co.strip() + "\n\n" + instr)
 
-    _caps = rbac.caps_for(user_id)
-    _can_act = bool(set(_caps) - {"flow.view", "memory.view", "agent.use"})   # a-t-il des droits d'action ?
-    tools, mapping = _gather_mcp_tools(user_id)
-    sk = [s for s in skills.load_skills() if _can_use_skill(user_id, s["name"])]
+    _caps = set(rbac.caps_for(user_id))
+    _atools = agent.get("tools") if isinstance(agent.get("tools"), dict) else {}
+
+    def _af(fam):                                       # cette famille d'outils est-elle permise à CET agent ?
+        return _atools.get(fam, True) is not False
+    for fam, fcaps in (("flows", {"flow.create", "flow.edit", "flow.run"}),
+                       ("files", {"file.read", "file.write"}),
+                       ("web", {"web.browse"}), ("dispatch", {"dispatch"})):
+        if not _af(fam):
+            _caps -= fcaps                              # périmètre de l'agent : on retire ces outils
+    _can_act = bool(_caps - {"flow.view", "memory.view", "agent.use"})   # a-t-il des droits d'action ?
+    tools, mapping = _gather_mcp_tools(user_id) if _af("mcp") else ([], {})
+    sk = ([s for s in skills.load_skills() if _can_use_skill(user_id, s["name"])] if _af("skills") else [])
     if sk:
         instr += ("\n\nSavoir-faire (skills) — appelle use_skill(name) pour la procédure détaillée :\n"
                   + "\n".join(f"- {s['name']} : {s['description']}" for s in sk))
@@ -884,7 +893,7 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
                           "description": "Charge la procédure détaillée d'une skill par son nom.",
                           "parameters": {"type": "object", "properties": {"name": {"type": "string"}},
                                          "required": ["name"]}}]
-    if depth == 0 and _can_act:        # délégation réservée aux rôles qui peuvent agir (pas un lecteur)
+    if depth == 0 and _can_act and _af("delegate") and agent.get("can_delegate", True) is not False:
         specialists = [a["name"] for a in agents.list_agents() if a["id"] != "orchestrateur"]
         if specialists:
             instr += "\n\nTu peux déléguer à un agent spécialisé : " + ", ".join(specialists) + " (via delegate)."
@@ -2657,14 +2666,25 @@ def get_agents(user_id: str = DEFAULT_USER):
 class AgentReq(BaseModel):
     name: str
     role: str = ""
+    description: str = ""
     instructions: str = ""
     autonomy: str = "ask"
+    tier: str | None = None
+    emoji: str | None = None
+    color: str | None = None
+    greeting: str | None = None
+    tools: dict | None = None
+    can_delegate: bool | None = None
     user_id: str = DEFAULT_USER
 
 
 @app.post("/agents")
 def add_agent(req: AgentReq, actor: str = Depends(_need("agent.manage"))):
-    return {"id": agents.create_agent(req.name, req.role, req.instructions, req.autonomy), "name": req.name}
+    aid = agents.create_agent(req.name, req.role, req.instructions, req.autonomy,
+                              description=req.description, emoji=req.emoji, color=req.color,
+                              greeting=req.greeting, tier=req.tier, tools=req.tools,
+                              can_delegate=req.can_delegate)
+    return {"id": aid, "name": req.name}
 
 
 @app.delete("/agents/{aid}")
@@ -2673,15 +2693,26 @@ def remove_agent(aid: str, user_id: str = DEFAULT_USER, actor: str = Depends(_ne
 
 
 class AgentPatchReq(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    description: str | None = None
+    instructions: str | None = None
     autonomy: str | None = None
+    tier: str | None = None
+    emoji: str | None = None
+    color: str | None = None
+    greeting: str | None = None
+    tools: dict | None = None
+    can_delegate: bool | None = None
     telegram_token: str | None = None
     user_id: str = DEFAULT_USER
 
 
 @app.patch("/agents/{aid}")
 def patch_agent(aid: str, req: AgentPatchReq, actor: str = Depends(_need("agent.manage"))):
-    if req.autonomy is not None:
-        agents.set_autonomy(aid, req.autonomy)
+    fields = req.model_dump(exclude_none=True, exclude={"telegram_token", "user_id"})
+    if fields:
+        agents.update_agent(aid, fields)
     if req.telegram_token is not None:
         agents.set_telegram_token(aid, req.telegram_token)
         try:

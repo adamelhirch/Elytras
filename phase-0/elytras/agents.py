@@ -87,12 +87,44 @@ def set_telegram_token(aid: str, token: str | None) -> bool:
     return True
 
 
-def create_agent(name: str, role: str = "", instructions: str = "", autonomy: str = "ask") -> str:
+# Champs configurables d'un agent (éditeur détaillé).
+EDITABLE = ("name", "role", "description", "instructions", "autonomy", "tier",
+            "emoji", "color", "greeting", "tools", "can_delegate")
+
+# Familles d'outils activables par agent (en plus des droits du rôle de l'utilisateur).
+TOOL_FAMILIES = ("mcp", "skills", "delegate", "flows", "files", "web", "dispatch")
+
+
+def create_agent(name: str, role: str = "", instructions: str = "", autonomy: str = "ask", **extra) -> str:
     aid = str(uuid.uuid4())
-    filestore.put("agents", aid, {"name": name, "role": role,
-                                  "instructions": instructions or f"Tu es l'agent {name}.",
-                                  "autonomy": autonomy})
+    rec = {"name": name, "role": role,
+           "instructions": instructions or f"Tu es l'agent {name}.",
+           "autonomy": "auto" if autonomy == "auto" else "ask"}
+    for k in ("description", "emoji", "color", "greeting", "tier", "tools", "can_delegate"):
+        if extra.get(k) is not None:
+            rec[k] = extra[k]
+    filestore.put("agents", aid, rec)
     return aid
+
+
+def update_agent(aid: str, fields: dict) -> bool:
+    """Met à jour les champs éditables d'un agent (surcharge pour les builtins)."""
+    patch = {k: v for k, v in (fields or {}).items() if k in EDITABLE and v is not None}
+    if "autonomy" in patch:
+        patch["autonomy"] = "auto" if patch["autonomy"] == "auto" else "ask"
+    if not patch:
+        return aid in DEFAULTS or aid in filestore.items("agents")
+    if aid in DEFAULTS:
+        ov = filestore.items("agent_overrides").get(aid) or {}
+        ov.update(patch)
+        filestore.put("agent_overrides", aid, ov)
+        return True
+    a = filestore.items("agents").get(aid)
+    if not a:
+        return False
+    a.update(patch)
+    filestore.put("agents", aid, a)
+    return True
 
 
 def delete_agent(aid: str) -> bool:
