@@ -873,6 +873,24 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
         instr = ("CONTEXTE DE L'ENTREPRISE (fourni par l'administration, LECTURE SEULE — ne le modifie jamais, "
                  "ne le contredis pas) :\n" + co.strip() + "\n\n" + instr)
 
+    prof = rbac.get_profile(user_id)         # personnalisation : l'agent sait qui est l'utilisateur
+    if prof and any(prof.get(k) for k in rbac.PROFILE_FIELDS):
+        bits = []
+        if prof.get("job_title"):
+            bits.append("poste : " + prof["job_title"])
+        if prof.get("department"):
+            bits.append("département : " + prof["department"])
+        if prof.get("bio"):
+            bits.append("présentation : " + prof["bio"])
+        if prof.get("preferences"):
+            bits.append("préférences de travail : " + prof["preferences"])
+        line = "\n\n[PROFIL DE L'UTILISATEUR COURANT] " + " ; ".join(bits) + "."
+        if prof.get("tone") == "vouvoiement":
+            line += " Vouvoie-le."
+        elif prof.get("tone") == "tutoiement":
+            line += " Tutoie-le."
+        instr += line
+
     _caps = set(rbac.caps_for(user_id))
     _atools = agent.get("tools") if isinstance(agent.get("tools"), dict) else {}
 
@@ -2747,6 +2765,26 @@ def set_my_telegram(req: MyTelegramReq, request: Request):
     if not rbac.set_telegram(actor, req.telegram_id):
         return JSONResponse({"error": "connecte-toi d'abord (compte requis)"}, status_code=400)
     return {"ok": True, "telegram_id": req.telegram_id}
+
+
+class ProfileReq(BaseModel):
+    job_title: str | None = None
+    department: str | None = None
+    bio: str | None = None
+    preferences: str | None = None
+    tone: str | None = None
+    user_id: str = DEFAULT_USER
+
+
+@app.get("/me/profile")
+def get_my_profile(request: Request):
+    return rbac.get_profile(_actor(request))
+
+
+@app.patch("/me/profile")
+def set_my_profile(req: ProfileReq, request: Request):
+    actor = _actor(request)
+    return rbac.set_profile(actor, req.model_dump(exclude_none=True, exclude={"user_id"}))
 
 
 @app.get("/telegram/status")

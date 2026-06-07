@@ -206,6 +206,23 @@ def set_telegram(user_id: str, telegram_id: str) -> bool:
     return True
 
 
+# ── Profil utilisateur (personnalisation : l'agent sait qui est l'utilisateur) ──
+PROFILE_FIELDS = ("job_title", "department", "bio", "preferences", "tone")
+
+
+def get_profile(user_id: str) -> dict:
+    return dict(filestore.items("user_profiles").get(user_id) or {})
+
+
+def set_profile(user_id: str, fields: dict) -> dict:
+    p = get_profile(user_id)
+    for k, v in (fields or {}).items():
+        if k in PROFILE_FIELDS and v is not None:
+            p[k] = v
+    filestore.put("user_profiles", user_id, p)
+    return p
+
+
 def find_by_telegram(telegram_id: str) -> str | None:
     tid = str(telegram_id or "").strip()
     if not tid:

@@ -12,17 +12,52 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
-  header{padding:14px 28px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
-  header h1{font-size:18px;margin:0;letter-spacing:.2px;font-weight:700}
+  /* ── Top bar ── */
+  header{padding:0 22px;height:58px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:30}
+  header h1{font-size:17px;margin:0;letter-spacing:.2px;font-weight:700;display:flex;align-items:center;gap:7px}
   header .tag{font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);padding:2px 9px;border-radius:999px}
   header .sp{flex:1}
+  .topbar-user{display:flex;align-items:center;gap:8px;text-align:right;line-height:1.25}
+  .topbar-user .u-name{font-weight:600;font-size:13px}
+  .topbar-user .u-role{font-size:11px;color:var(--muted)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--acc-weak);color:var(--acc);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:none}
   button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px;transition:filter .12s,background .12s}
   button.ghost{background:#fff;color:var(--txt);border:1px solid var(--line);font-weight:500}
   button.ghost:hover{background:var(--panel2)}
   button:hover{filter:brightness(1.05)}
-  main{max-width:1140px;margin:0 auto;padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  /* ── Layout : sidebar + contenu ── */
+  .layout{display:flex;align-items:stretch;min-height:calc(100vh - 58px)}
+  .sidebar{width:226px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:14px 12px;position:sticky;top:58px;height:calc(100vh - 58px);overflow:auto;display:flex;flex-direction:column;gap:3px}
+  .sidebar .nav-group{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;margin:10px 8px 4px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer;color:var(--txt);font-size:13.5px;font-weight:500;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s;user-select:none}
+  .nav-item .ic{width:20px;text-align:center;font-size:15px;flex:none}
+  .nav-item:hover{background:var(--panel2)}
+  .nav-item.active{background:var(--acc-weak);color:var(--acc);border-color:var(--acc-weak);font-weight:600}
+  .nav-item.active .ic{filter:none}
+  .nav-spacer{flex:1}
+  .content{display:block;flex:1;min-width:0;padding:24px 28px;max-width:none;margin:0}
+  /* ── Sections (vues) ── */
+  .view{display:none;animation:viewfade .18s ease}
+  .view.active{display:block}
+  @keyframes viewfade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .view-head{display:flex;align-items:center;gap:10px;margin:0 0 18px}
+  .view-head h2.view-title{font-size:20px;font-weight:700;margin:0;letter-spacing:.2px;text-transform:none;color:var(--txt)}
+  .view-head .ic{font-size:21px}
+  .view-head .sub{color:var(--muted);font-size:13px}
+  .view-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  .view-grid.one{grid-template-columns:1fr;max-width:760px}
+  main{max-width:1180px;margin:0 auto;padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
   .card.full{grid-column:1/-1}
+  /* ── Toasts ── */
+  #toasts{position:fixed;top:14px;right:14px;z-index:2000;display:flex;flex-direction:column;gap:8px;max-width:340px;pointer-events:none}
+  .toast{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:10px;padding:11px 14px;font-size:13px;box-shadow:0 6px 22px rgba(16,24,40,.13);display:flex;align-items:flex-start;gap:9px;opacity:0;transform:translateX(16px);transition:opacity .22s ease,transform .22s ease}
+  .toast.in{opacity:1;transform:none}
+  .toast.ok{border-left-color:var(--ok)}
+  .toast.ko{border-left-color:var(--ko)}
+  .toast.info{border-left-color:var(--acc)}
+  .toast .t-ic{font-size:14px;line-height:1.3;flex:none}
+  .toast .t-msg{flex:1;word-break:break-word;color:var(--txt)}
   .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 12px;font-weight:600}
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle}
   .dot.ok{background:var(--ok)} .dot.ko{background:var(--ko)} .dot.warn{background:var(--warn)}
@@ -41,22 +76,37 @@
   pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:320px;font-size:12px;color:#334155;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,monospace}
   .muted{color:var(--muted)} .sm{font-size:12px}
   a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  @media(max-width:980px){
+    .view-grid{grid-template-columns:1fr}
+    .sidebar{width:64px;padding:14px 8px}
+    .sidebar .nav-group{display:none}
+    .nav-item{justify-content:center;padding:11px 0}
+    .nav-item .label{display:none}
+    .nav-item .ic{font-size:18px}
+    .content{padding:18px 16px}
+  }
   @media(max-width:780px){main{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header>
-  <h1>⬡ Elytras</h1><span class="tag">Phase 0 · cœur modulaire</span>
-  <span class="sm muted" style="margin-left:8px">connecté :</span>
-  <b id="me_name" class="sm">…</b>
-  <span id="me_role" class="pill"></span>
-  <button id="tg_btn" class="ghost sm" style="padding:4px 9px;display:none" onclick="setMyTelegram()">Mon Telegram</button>
-  <button id="logout_btn" class="ghost sm" style="padding:4px 9px;display:none" onclick="logout()">déconnexion</button>
-  <select id="user_select" style="display:none"></select>
+  <h1><span>⬡</span> Elytras</h1>
+  <span class="tag">Phase 0</span>
   <span class="sp"></span>
-  <span id="hstatus" class="sm muted">…</span>
-  <button onclick="runTests()">↻ Relancer les tests</button>
+  <span id="hstatus" class="sm muted" style="margin-right:4px">…</span>
+  <button id="tg_btn" class="ghost sm" style="padding:5px 11px;display:none" onclick="setMyTelegram()">📨 Mon Telegram</button>
+  <select id="user_select" style="display:none"></select>
+  <div class="topbar-user" id="topbar_user" style="display:none">
+    <div>
+      <div class="u-name"><b id="me_name">…</b></div>
+      <div class="u-role"><span id="me_role"></span></div>
+    </div>
+    <div class="avatar" id="me_avatar">·</div>
+  </div>
+  <button id="logout_btn" class="ghost sm" style="padding:6px 11px;display:none" onclick="logout()" title="Se déconnecter">Déconnexion</button>
 </header>
+
+<div id="toasts"></div>
 
 <div id="auth_overlay" style="display:none;position:fixed;inset:0;background:#ffffff;z-index:1000;align-items:center;justify-content:center">
   <div style="border:1px solid var(--line);border-radius:14px;padding:26px;max-width:360px;width:90%;background:#f9fafb">
@@ -80,8 +130,15 @@
   </div>
 </div>
 
-<main>
-  <div id="banner" style="grid-column:1/-1"></div>
+<div class="layout">
+  <nav class="sidebar" id="nav"></nav>
+  <main class="content">
+  <div id="banner" style="display:none"></div>
+
+  <!-- ════════ VUE : CHAT ════════ -->
+  <section class="view active" id="view-chat" data-view="chat">
+    <div class="view-head"><span class="ic">💬</span><h2 class="view-title">Chat</h2><span class="sub">Discute avec tes agents</span></div>
+    <div class="view-grid one">
 
   <section class="card full">
     <h2>Chat</h2>
@@ -122,7 +179,16 @@
     </div>
   </section>
 
-  <section class="card full" id="admin_card" style="display:none">
+    </div>
+  </section>
+  <!-- ════════ FIN VUE CHAT ════════ -->
+
+  <!-- ════════ VUE : ADMINISTRATION ════════ -->
+  <section class="view" id="view-admin" data-view="admin">
+    <div class="view-head"><span class="ic">🛡️</span><h2 class="view-title">Administration</h2><span class="sub">Équipes, comptes, rôles, SSO, contexte entreprise</span></div>
+    <div class="view-grid one">
+
+  <section class="card full" id="admin_card">
     <h2>Administration — équipes &amp; comptes</h2>
     <p class="sm muted">Crée des équipes (chacune avec un rôle), des comptes, et assigne les utilisateurs aux équipes. Les droits de chacun découlent du rôle de ses équipes.</p>
     <div style="display:flex;gap:18px;flex-wrap:wrap">
@@ -171,6 +237,15 @@
       </div>
     </div>
   </section>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE ADMINISTRATION ════════ -->
+
+  <!-- ════════ VUE : AGENTS ════════ -->
+  <section class="view" id="view-agents" data-view="agents">
+    <div class="view-head"><span class="ic">🤖</span><h2 class="view-title">Agents</h2><span class="sub">L'orchestre d'agents IA de ton entreprise</span></div>
+    <div class="view-grid one">
 
   <section class="card full">
     <h2>Agents (orchestre)</h2>
@@ -223,6 +298,15 @@
     </div>
   </div>
 
+    </div>
+  </section>
+  <!-- ════════ FIN VUE AGENTS ════════ -->
+
+  <!-- ════════ VUE : PLANIFICATEUR ════════ -->
+  <section class="view" id="view-schedules" data-view="schedules">
+    <div class="view-head"><span class="ic">⏰</span><h2 class="view-title">Planificateur</h2><span class="sub">Automatise agents et workflows</span></div>
+    <div class="view-grid one">
+
   <section class="card full">
     <h2>Planificateur</h2>
     <p class="sm muted">Lance un agent ou un flow automatiquement (chaque jour, toutes les N minutes, ou via une expression cron).</p>
@@ -241,6 +325,15 @@
       <button class="ghost sm" data-cap="schedule.manage" style="padding:5px 10px" onclick="createSchedule()">+ Tâche</button>
     </div>
   </section>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE PLANIFICATEUR ════════ -->
+
+  <!-- ════════ VUE : WORKFLOWS ════════ -->
+  <section class="view" id="view-workflows" data-view="workflows">
+    <div class="view-head"><span class="ic">🔀</span><h2 class="view-title">Workflows</h2><span class="sub">Éditeur de flows et suivi des tâches</span></div>
+    <div class="view-grid one">
 
   <section class="card full">
     <h2>Flows (workflows)</h2>
@@ -265,6 +358,15 @@
     </details>
   </section>
 
+    </div>
+  </section>
+  <!-- ════════ FIN VUE WORKFLOWS ════════ -->
+
+  <!-- ════════ VUE : OBSERVABILITÉ ════════ -->
+  <section class="view" id="view-observability" data-view="observability">
+    <div class="view-head"><span class="ic">📊</span><h2 class="view-title">Observabilité</h2><span class="sub">Usage, coûts, audit et auto-tests</span></div>
+    <div class="view-grid one">
+
   <section class="card full">
     <h2>Observabilité &amp; coûts</h2>
     <p class="sm muted">Usage des modèles, activité et exécutions. <span id="obs_scope"></span></p>
@@ -274,13 +376,32 @@
 
   <section class="card full">
     <h2>Auto-tests</h2>
+    <div style="margin-bottom:8px"><button class="ghost sm" style="padding:5px 10px" onclick="runTests()">↻ Relancer les tests</button></div>
     <div id="tests"><span class="muted">Lancement…</span></div>
   </section>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE OBSERVABILITÉ ════════ -->
+
+  <!-- ════════ VUE : PROVIDERS ════════ -->
+  <section class="view" id="view-providers" data-view="providers">
+    <div class="view-head"><span class="ic">🧠</span><h2 class="view-title">Providers</h2><span class="sub">Modèles et fournisseurs LLM</span></div>
+    <div class="view-grid one">
 
   <section class="card full">
     <h2>Providers (LLM)</h2>
     <div id="providers"><span class="muted">…</span></div>
   </section>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE PROVIDERS ════════ -->
+
+  <!-- ════════ VUE : CONNECTEURS ════════ -->
+  <section class="view" id="view-connectors" data-view="connectors">
+    <div class="view-head"><span class="ic">🔌</span><h2 class="view-title">Connecteurs</h2><span class="sub">Serveurs MCP, skills et outils</span></div>
+    <div class="view-grid">
 
   <section class="card">
     <h2>Serveurs MCP (connecteurs)</h2>
@@ -305,6 +426,25 @@
     <div id="skills"><span class="muted">…</span></div>
   </section>
 
+  <section class="card full">
+    <h2>Lancer un outil MCP</h2>
+    <div class="tool"><span>Serveur</span> <input id="t_srv" value="example" style="max-width:220px">
+      <span>Outil</span> <input id="t_tool" value="list_inactive_customers" style="max-width:240px">
+      <button onclick="callTool()">Exécuter</button></div>
+    <div class="sm muted" style="margin:6px 0">Arguments (JSON)</div>
+    <textarea id="t_args" rows="2">{"days": 90}</textarea>
+    <pre id="t_out" style="margin-top:12px">—</pre>
+  </section>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE CONNECTEURS ════════ -->
+
+  <!-- ════════ VUE : FICHIERS ════════ -->
+  <section class="view" id="view-files" data-view="files">
+    <div class="view-head"><span class="ic">📁</span><h2 class="view-title">Fichiers</h2><span class="sub">Espace de fichiers et mémoire des agents</span></div>
+    <div class="view-grid">
+
   <section class="card">
     <h2>Fichiers</h2>
     <p class="sm muted">Espace scopé (perso/projet). Lisibles/modifiables par les agents et les flows selon tes droits.</p>
@@ -318,24 +458,68 @@
     </div>
   </section>
 
-  <section class="card full">
-    <h2>Lancer un outil MCP</h2>
-    <div class="tool"><span>Serveur</span> <input id="t_srv" value="example" style="max-width:220px">
-      <span>Outil</span> <input id="t_tool" value="list_inactive_customers" style="max-width:240px">
-      <button onclick="callTool()">Exécuter</button></div>
-    <div class="sm muted" style="margin:6px 0">Arguments (JSON)</div>
-    <textarea id="t_args" rows="2">{"days": 90}</textarea>
-    <pre id="t_out" style="margin-top:12px">—</pre>
-  </section>
-
-  <section class="card full">
+  <section class="card">
     <h2>Mémoire</h2>
     <div class="tool" style="gap:8px"><input id="m_q" placeholder="rechercher dans la mémoire…">
       <button class="ghost" onclick="searchMem()">Chercher</button>
       <button class="ghost" style="color:#dc2626;border-color:#fecaca" onclick="resetMem()">Réinitialiser</button></div>
     <div id="memory" class="sm" style="margin-top:10px"><span class="muted">—</span></div>
   </section>
-</main>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE FICHIERS ════════ -->
+
+  <!-- ════════ VUE : MON PROFIL ════════ -->
+  <section class="view" id="view-profile" data-view="profile">
+    <div class="view-head"><span class="ic">👤</span><h2 class="view-title">Mon profil</h2><span class="sub">Aide tes agents à savoir qui tu es</span></div>
+    <div class="view-grid one">
+
+  <section class="card full">
+    <h2>Qui suis-je ? (vu par les agents)</h2>
+    <p class="sm muted">Ces informations sont transmises aux agents pour qu'ils sachent à qui ils parlent et adaptent leurs réponses. Rien d'obligatoire — remplis ce qui t'aide.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin-top:6px">
+      <div>
+        <label class="sm muted">Poste / fonction dans l'entreprise</label>
+        <input id="pf_job" placeholder="ex : Responsable communication" style="margin-top:4px">
+      </div>
+      <div>
+        <label class="sm muted">Département / équipe</label>
+        <input id="pf_dept" placeholder="ex : Marketing" style="margin-top:4px">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label class="sm muted">Présentation courte / bio</label>
+      <textarea id="pf_bio" rows="3" placeholder="Quelques mots sur toi, ton rôle, tes responsabilités…" style="margin-top:4px"></textarea>
+    </div>
+    <div style="margin-top:12px">
+      <label class="sm muted">Préférences de travail</label>
+      <textarea id="pf_prefs" rows="3" placeholder="ex : réponses concises, en bullet points ; cite tes sources ; préviens-moi avant toute action sensible…" style="margin-top:4px"></textarea>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end">
+      <div style="min-width:200px">
+        <label class="sm muted">Ton souhaité</label><br>
+        <select id="pf_tone" style="margin-top:4px;min-width:200px">
+          <option value="tutoiement">Tutoiement (tu)</option>
+          <option value="vouvoiement">Vouvoiement (vous)</option>
+        </select>
+      </div>
+      <div style="flex:1"></div>
+      <button onclick="saveProfile()" style="padding:8px 16px">💾 Enregistrer mon profil</button>
+    </div>
+    <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px">
+      <div class="sm muted" style="margin-bottom:6px">Messagerie personnelle</div>
+      <button class="ghost sm" style="padding:6px 12px" onclick="setMyTelegram()">📨 Configurer mon Telegram</button>
+      <span class="sm muted" style="margin-left:8px">Lie ton compte Telegram pour que les agents puissent te joindre en gardant ton périmètre.</span>
+    </div>
+  </section>
+
+    </div>
+  </section>
+  <!-- ════════ FIN VUE MON PROFIL ════════ -->
+
+  </main>
+</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -366,9 +550,11 @@ function showApp(me){
   $('#auth_overlay').style.display='none';
   $('#me_name').textContent=me.name||'—';
   $('#me_role').textContent=(me.teams&&me.teams.length)?me.teams.map(t=>t.name+' · '+t.role).join(', '):(me.is_admin?'admin (local)':'—');
+  const av=$('#me_avatar'); if(av) av.textContent=(me.name||'?').trim().charAt(0).toUpperCase()||'?';
+  const tu=$('#topbar_user'); if(tu) tu.style.display=TOKEN?'':'none';
   $('#logout_btn').style.display=TOKEN?'':'none';
   if($('#tg_btn')) $('#tg_btn').style.display=TOKEN?'':'none';
-  applyCaps(); initApp();
+  applyCaps(); buildNav(); initApp();
 }
 async function doLogin(){
   const d=await (await fetch('/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:$('#login_email').value,password:$('#login_pw').value})})).json();
@@ -385,6 +571,87 @@ function applyCaps(){
   const caps=window._caps||[]; const has=c=>caps.includes(c)||caps.includes('admin');
   document.querySelectorAll('[data-cap]').forEach(el=>{ el.style.display = has(el.getAttribute('data-cap'))?'':'none'; });
   const adm=$('#admin_card'); if(adm) adm.style.display = has('admin')?'':'none';
+}
+
+// ── Navigation par sections (sidebar) ──
+// cap=null → toujours visible ; sinon visible si l'utilisateur a la capacité (admin voit tout).
+const NAV=[
+  {name:'chat',          view:'view-chat',          label:'Chat',           icon:'💬', cap:null,              group:'Espace de travail'},
+  {name:'agents',        view:'view-agents',        label:'Agents',         icon:'🤖', cap:null,              group:'Espace de travail'},
+  {name:'workflows',     view:'view-workflows',     label:'Workflows',      icon:'🔀', cap:'flow.view',       group:'Espace de travail'},
+  {name:'files',         view:'view-files',         label:'Fichiers',       icon:'📁', cap:'file.read',       group:'Espace de travail'},
+  {name:'connectors',    view:'view-connectors',    label:'Connecteurs',    icon:'🔌', cap:'mcp.manage',      group:'Configuration'},
+  {name:'providers',     view:'view-providers',     label:'Providers',      icon:'🧠', cap:'provider.manage', group:'Configuration'},
+  {name:'schedules',     view:'view-schedules',     label:'Planificateur',  icon:'⏰', cap:'schedule.manage', group:'Configuration'},
+  {name:'observability', view:'view-observability', label:'Observabilité',  icon:'📊', cap:null,              group:'Pilotage'},
+  {name:'admin',         view:'view-admin',         label:'Administration', icon:'🛡️', cap:'admin',           group:'Pilotage'},
+  {name:'profile',       view:'view-profile',       label:'Mon profil',     icon:'👤', cap:null,              group:'Compte'},
+];
+let currentSection=null;
+function navHasCap(cap){ if(!cap)return true; const caps=window._caps||[]; return caps.includes(cap)||caps.includes('admin'); }
+function buildNav(){
+  const nav=$('#nav'); if(!nav)return;
+  const visible=NAV.filter(n=>navHasCap(n.cap));
+  let html='', lastGroup=null;
+  visible.forEach(n=>{
+    if(n.group!==lastGroup){ html+=`<div class="nav-group">${esc(n.group)}</div>`; lastGroup=n.group; }
+    html+=`<div class="nav-item" data-section="${n.name}" onclick="showSection('${n.name}')" role="button" tabindex="0">
+      <span class="ic">${n.icon}</span><span class="label">${esc(n.label)}</span></div>`;
+  });
+  nav.innerHTML=html;
+  if(!nav._kb){ nav._kb=true; nav.addEventListener('keydown',e=>{
+    if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('nav-item')){ e.preventDefault(); showSection(e.target.getAttribute('data-section')); }
+  }); }
+  // restaure la dernière section si elle est encore accessible, sinon « chat »
+  let want=null; try{ want=localStorage.getItem('elytras_section'); }catch(e){}
+  if(!want || !visible.some(n=>n.name===want)) want='chat';
+  showSection(want);
+}
+function showSection(name){
+  const entry=NAV.find(n=>n.name===name);
+  if(!entry || !navHasCap(entry.cap)) name='chat';
+  currentSection=name;
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.getAttribute('data-view')===name));
+  document.querySelectorAll('.nav-item').forEach(it=>it.classList.toggle('active', it.getAttribute('data-section')===name));
+  try{ localStorage.setItem('elytras_section',name); }catch(e){}
+  if(typeof window!=='undefined') window.scrollTo&&window.scrollTo(0,0);
+  onSectionShown(name);
+}
+function onSectionShown(name){
+  // rafraîchit les données utiles à l'ouverture (best-effort)
+  try{
+    if(name==='profile') loadProfile();
+    else if(name==='admin' && (window._caps||[]).includes('admin')) loadAdmin();
+    else if(name==='observability'){ loadObs(); loadAudit(); }
+    else if(name==='workflows'){ loadFlows(); loadTasks(); }
+    else if(name==='files') loadFiles();
+    else if(name==='connectors'){ loadServers(); loadSkills(); }
+    else if(name==='providers') loadProviders();
+    else if(name==='schedules') loadSchedules();
+    else if(name==='agents') loadAgents();
+  }catch(e){}
+}
+
+// ── Mon profil ──
+async function loadProfile(){
+  const d=await jget('/me/profile'); if(!d||d.error) return;
+  if($('#pf_job'))   $('#pf_job').value   = d.job_title   || '';
+  if($('#pf_dept'))  $('#pf_dept').value  = d.department  || '';
+  if($('#pf_bio'))   $('#pf_bio').value   = d.bio         || '';
+  if($('#pf_prefs')) $('#pf_prefs').value = d.preferences || '';
+  if($('#pf_tone'))  $('#pf_tone').value  = d.tone        || 'tutoiement';
+}
+async function saveProfile(){
+  const body={
+    job_title:   ($('#pf_job')   && $('#pf_job').value.trim())   || '',
+    department:  ($('#pf_dept')  && $('#pf_dept').value.trim())  || '',
+    bio:         ($('#pf_bio')   && $('#pf_bio').value.trim())   || '',
+    preferences: ($('#pf_prefs') && $('#pf_prefs').value.trim()) || '',
+    tone:        ($('#pf_tone')  && $('#pf_tone').value)         || 'tutoiement',
+  };
+  const d=await jpatch('/me/profile',body);
+  if(d&&d.error){ banner(d.error,'ko'); return; }
+  banner('Profil enregistré.','ok');
 }
 // ── Administration ──
 async function loadAdmin(){
@@ -1226,9 +1493,20 @@ async function connectOAuth(id){
   if(w)w.location=d.auth_url; else window.location=d.auth_url;
   setTimeout(loadServers,5000);
 }
+// ── Notifications toast (empilées en haut à droite, auto-disparition ~3s) ──
 function banner(msg,kind){
-  $('#banner').innerHTML=`<div style="background:#f4f6f8;border:1px solid ${kind==='ok'?'#bbf7d0':'#fecaca'};border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:4px">
-    <span class="dot ${kind==='ok'?'ok':'ko'}"></span>${esc(msg)}</div>`;
+  const type = kind==='ok'?'ok':kind==='ko'?'ko':'info';
+  const icon = type==='ok'?'✓':type==='ko'?'✕':'ℹ';
+  let wrap=$('#toasts');
+  if(!wrap){ wrap=document.createElement('div'); wrap.id='toasts'; document.body.appendChild(wrap); }
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  t.innerHTML=`<span class="t-ic">${icon}</span><span class="t-msg">${esc(msg)}</span>`;
+  wrap.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('in'));
+  const kill=()=>{ if(!t.parentNode)return; t.classList.remove('in'); setTimeout(()=>t.remove(),240); };
+  const to=setTimeout(kill, 3000);
+  t.addEventListener('click',()=>{ clearTimeout(to); kill(); });
 }
 function initBanner(){
   const p=new URLSearchParams(location.search);
