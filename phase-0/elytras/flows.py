@@ -77,6 +77,8 @@ def _normalize_module(m: dict) -> dict:
     elif t == "agent":
         m.setdefault("agent_id", "orchestrateur")
         m.setdefault("prompt", "")
+        mem = str(m.get("memory") or "flow").lower()        # mémoire rappelée par l'étape
+        m["memory"] = mem if mem in ("flow", "perso", "projet", "none") else "flow"
     elif t == "tool":
         m.setdefault("server_id", "")
         m.setdefault("tool", "")

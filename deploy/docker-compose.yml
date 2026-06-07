@@ -24,6 +24,13 @@ services:
     build: ../phase-0
     restart: unless-stopped
     env_file: .env
+    # Permet au bac à sable du code (bubblewrap) de créer ses namespaces DANS le conteneur
+    # (Ubuntu 24.04 restreint les user-namespaces non privilégiés via AppArmor). Compromis :
+    # on relâche seccomp/apparmor du conteneur, mais on GAGNE l'isolation du code client
+    # (réseau coupé + FS lecture seule). Pour exiger l'isolation : ELYTRAS_CODE_SANDBOX=on.
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
     environment:
       ELYTRAS_STATE_FILE: /data/.elytras-state.json
       ELYTRAS_KEY_FILE: /data/.elytras-key

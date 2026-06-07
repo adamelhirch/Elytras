@@ -1423,9 +1423,16 @@ function inspectorHTML(){
     </div>${mResultHTML(m)}</div>`;
 }
 function typeFields(m){
-  if(m.type==='agent'){ const ags=(window._agents||[]).map(a=>`<option value="${a.id}" ${m.agent_id===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
+  if(m.type==='agent'){ const ags=(window._agents||[]).map(a=>`<option value="${a.id}" ${m.agent_id===a.id?'selected':''}>${esc(a.name)}</option>`).join(''); const MM=m.memory||'flow';
     return `<select onchange="mEdit('agent_id',this.value)" style="${SELST};width:100%">${ags}</select>
-      <textarea rows="4" class="tmpl" onchange="mEdit('prompt',this.value)" placeholder="prompt — réf {{ flow_input.x }}, {{ results.id }}" style="margin-top:6px;width:100%">${esc(m.prompt||'')}</textarea>`; }
+      <textarea rows="4" class="tmpl" onchange="mEdit('prompt',this.value)" placeholder="prompt — réf {{ flow_input.x }}, {{ results.id }}" style="margin-top:6px;width:100%">${esc(m.prompt||'')}</textarea>
+      <div class="sm muted" style="margin-top:6px">Mémoire de l'étape :
+        <select onchange="mEdit('memory',this.value)" style="${SELST}">
+          <option value="flow" ${MM==='flow'?'selected':''}>celle du flow</option>
+          <option value="perso" ${MM==='perso'?'selected':''}>perso (utilisateur)</option>
+          <option value="projet" ${MM==='projet'?'selected':''}>projet</option>
+          <option value="none" ${MM==='none'?'selected':''}>aucune</option>
+        </select></div>`; }
   if(m.type==='tool'){ const srvs=Object.values(serversById||{}).map(sv=>`<option value="${sv.id}" ${m.server_id===sv.id?'selected':''}>${esc(sv.name)}</option>`).join('');
     return `<select onchange="mEdit('server_id',this.value)" style="${SELST};width:100%"><option value="">— serveur MCP —</option>${srvs}</select>
       <input onchange="mEdit('tool',this.value)" value="${esc(m.tool||'')}" placeholder="nom de l'outil" style="margin-top:6px;width:100%">

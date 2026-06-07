@@ -1569,10 +1569,19 @@ def _dispatch_leaf(m, ns, meta):
     t = m.get("type")
     if t == "agent":
         ag = agents.get_agent(m.get("agent_id") or "orchestrateur") or agents.get_agent("orchestrateur")
+        mem = (m.get("memory") or "flow").lower()            # mémoire que CETTE étape rappelle
+        if mem == "perso":
+            a_scope, a_owner, a_proj = "user", (meta.get("mowner") or meta["user_id"]), None
+        elif mem == "projet":
+            a_scope, a_owner, a_proj = "project", None, meta.get("mproj")
+        elif mem == "none":
+            a_scope, a_owner, a_proj = "none", None, None     # aucune mémoire rappelée
+        else:
+            a_scope, a_owner, a_proj = meta["mscope"], meta["mowner"], meta["mproj"]   # mémoire du flow
         _audit("agent", agent=ag["name"], detail=(m.get("summary") or "")[:60], user_id=meta["mowner"] or meta["user_id"],
                project_id=meta["mproj"], parent_id=meta["root"])
         out, _u = run_agent(ag, [{"role": "user", "content": _render(m.get("prompt", ""), ns)}],
-                            meta["mscope"], meta["mowner"], meta["mproj"], meta["user_id"], None,
+                            a_scope, a_owner, a_proj, meta["user_id"], None,
                             depth=0, parent_id=meta["root"])
         return out
     if t == "tool":
