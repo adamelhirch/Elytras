@@ -701,7 +701,9 @@ def providers_login(req: LoginReq, actor: str = Depends(_need("provider.manage")
     if req.provider not in provider_auth.SPECS:
         return JSONResponse({"error": "provider inconnu"}, status_code=404)
     try:
-        return {"auth_url": prov_auth.start_login(req.provider, req.user_id)}
+        # Connexion provider = à l'échelle de l'INSTANCE (clé fixe DEFAULT_USER) : le statut et
+        # l'agent lisent le token sous DEFAULT_USER. (Sinon : « connecté » mais statut KO.)
+        return {"auth_url": prov_auth.start_login(req.provider, DEFAULT_USER)}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
