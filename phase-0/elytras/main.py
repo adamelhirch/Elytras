@@ -1977,7 +1977,7 @@ def _run_schedule(sid, s):
     answer, _u = run_agent(agent, [{"role": "user", "content": s.get("prompt", "")}],
                            mscope, mowner, mproj, s.get("owner_id"), None, depth=0, parent_id=root)
     try:
-        ex = providers.CodexProvider()
+        ex = _agent_provider()
         memory_engine.remember(mscope, mowner, mproj, s.get("prompt", ""), answer, "",
                                lambda msgs: ex.complete(msgs).text)
     except Exception:
