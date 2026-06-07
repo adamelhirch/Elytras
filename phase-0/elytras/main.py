@@ -1464,13 +1464,42 @@ def _sandbox_cmd(base_cmd, script_path, work=None):
     return base_cmd, False
 
 
-def _run_code(content, ns, timeout_s, meta=None):
-    """Exécute du Python inline dans un sous-processus isolé (réseau coupé, FS lecture seule).
+_PY_HARNESS = (
+    "import json as _j, sys as _s\n"
+    "class _D(dict):\n"
+    "    def __getattr__(self, k):\n"
+    "        try: return self[k]\n"
+    "        except KeyError: return None\n"
+    "def _w(x):\n"
+    "    if isinstance(x, dict): return _D({k: _w(v) for k, v in x.items()})\n"
+    "    if isinstance(x, list): return [_w(v) for v in x]\n"
+    "    return x\n"
+    "_ctx=_j.loads(_s.stdin.read())\n"
+    "flow_input=_w(_ctx['flow_input'])\nresults=_w(_ctx['results'])\nitem=_w(_ctx.get('item'))\nindex=_ctx.get('index')\n"
+    "input_dir=_ctx.get('input_dir')\noutput_dir=_ctx.get('output_dir')\n"
+    "result=None\n"
+    "# ───── code utilisateur ─────\n{CODE}\n# ───── fin ─────\n"
+    "_out=main() if ('main' in dir() and callable(main)) else result\n"
+    "_s.stdout.write('\\x1e'+_j.dumps(_out, default=str))\n")
 
-    Dispo dans le code : flow_input, results, item, index, ainsi que **input_dir** (fichiers
-    d'entrée montés en lecture seule) et **output_dir** (y écrire des fichiers → sauvegardés
-    dans l'espace scopé = sortie fichier du flow). Renvoie via `result = …` (ou `main()`).
+_JS_HARNESS = (
+    "const _ctx=JSON.parse(process.env.ELYTRAS_CTX||'{}');\n"
+    "const {flow_input, results, item, index, input_dir, output_dir}=_ctx;\n"
+    "// ───── code utilisateur ─────\n{CODE}\n// ───── fin ─────\n"
+    "(async()=>{let _out;"
+    "if(typeof main==='function'){_out=await main();}"
+    "else if(typeof result!=='undefined'){_out=result;}else{_out=null;}"
+    "process.stdout.write('\\x1e'+JSON.stringify(_out===undefined?null:_out));"
+    "})().catch(e=>{console.error(e&&e.stack||String(e));process.exit(1);});\n")
+
+
+def _run_code(content, ns, timeout_s, meta=None, language="python"):
+    """Exécute un bloc de code (Python / JavaScript / TypeScript) dans un sous-processus
+    isolé (réseau coupé, FS lecture seule sauf dossier de travail). Contexte exposé :
+    flow_input, results, item, index, **input_dir** (fichiers d'entrée, lecture) et
+    **output_dir** (y écrire = sortie fichier du flow). Renvoie via `result = …` ou un `main()`.
     """
+    lang = (language or "python").lower()
     work = tempfile.mkdtemp(prefix="elytras_")
     indir, outdir = os.path.join(work, "in"), os.path.join(work, "out")
     os.makedirs(indir)
@@ -1485,34 +1514,31 @@ def _run_code(content, ns, timeout_s, meta=None):
     payload = json.dumps({"flow_input": _plain(ns.get("flow_input")), "results": _plain(ns.get("results")),
                           "item": _plain(ns.get("item")), "index": ns.get("index"),
                           "input_dir": indir, "output_dir": outdir}, default=str)
-    prog = ("import json as _j, sys as _s\n"
-            "class _D(dict):\n"
-            "    def __getattr__(self, k):\n"
-            "        try: return self[k]\n"
-            "        except KeyError: return None\n"
-            "def _w(x):\n"
-            "    if isinstance(x, dict): return _D({k: _w(v) for k, v in x.items()})\n"
-            "    if isinstance(x, list): return [_w(v) for v in x]\n"
-            "    return x\n"
-            "_ctx=_j.loads(_s.stdin.read())\n"
-            "flow_input=_w(_ctx['flow_input'])\nresults=_w(_ctx['results'])\nitem=_w(_ctx.get('item'))\nindex=_ctx.get('index')\n"
-            "input_dir=_ctx.get('input_dir')\noutput_dir=_ctx.get('output_dir')\n"
-            "result=None\n"
-            "# ───── code utilisateur ─────\n"
-            + (content or "") + "\n"
-            "# ───── fin ─────\n"
-            "_out=main() if ('main' in dir() and callable(main)) else result\n"
-            "_s.stdout.write('\\x1e'+_j.dumps(_out, default=str))\n")
-    path = os.path.join(work, "_run.py")
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(prog)
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": os.environ.get("HOME", "/tmp"),
+           "LANG": os.environ.get("LANG", "C.UTF-8")}
+    stdin_data = ""
+    if lang in ("javascript", "js", "typescript", "ts"):
+        ext = "ts" if lang in ("typescript", "ts") else "js"
+        path = os.path.join(work, "_run." + ext)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(_JS_HARNESS.replace("{CODE}", content or ""))
+        env["ELYTRAS_CTX"] = payload                              # contexte via variable d'env (JS/TS)
+        base = ["node"] + (["--experimental-strip-types"] if ext == "ts" else []) + [path]
+    else:
+        path = os.path.join(work, "_run.py")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(_PY_HARNESS.replace("{CODE}", content or ""))
+        stdin_data = payload                                      # contexte via stdin (Python)
+        base = [sys.executable, "-I", path]
     try:
-        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": os.environ.get("HOME", "/tmp"),
-               "LANG": os.environ.get("LANG", "C.UTF-8")}
-        cmd, _sb = _sandbox_cmd([sys.executable, "-I", path], path, work)
-        p = subprocess.run(cmd, input=payload, capture_output=True, text=True,
+        cmd, _sb = _sandbox_cmd(base, path, work)
+        p = subprocess.run(cmd, input=stdin_data, capture_output=True, text=True,
                            timeout=float(timeout_s or 30), env=env)
         rc, stdout, stderr = p.returncode, p.stdout, p.stderr
+        if _sb and rc != 0 and _SANDBOX_MODE != "on" and ("bwrap:" in (stderr or "") or "namespace" in (stderr or "")):
+            p = subprocess.run(base, input=stdin_data, capture_output=True, text=True,   # repli si le bac à sable ne peut pas créer de namespace (ex. Docker non privilégié)
+                               timeout=float(timeout_s or 30), env=env)
+            rc, stdout, stderr = p.returncode, p.stdout, p.stderr
         # Sauvegarde des fichiers produits dans out/ → espace scopé (sortie fichier du flow)
         if meta is not None and "out_scope" in meta:
             for fn in sorted(os.listdir(outdir)):
@@ -1561,9 +1587,10 @@ def _dispatch_leaf(m, ns, meta):
     if t == "code":
         if not rbac.has_cap(meta["user_id"], "code.execute"):
             raise PermissionError("exécution de code non autorisée pour cet utilisateur (capacité code.execute requise)")
-        _audit("code", agent=m.get("summary") or "code", detail="python", user_id=meta["mowner"] or meta["user_id"],
+        lang = (m.get("language") or "python").lower()
+        _audit("code", agent=m.get("summary") or "code", detail=lang, user_id=meta["mowner"] or meta["user_id"],
                project_id=meta["mproj"], parent_id=meta["root"])
-        return _run_code(m.get("content", ""), ns, m.get("timeout_s"), meta)
+        return _run_code(m.get("content", ""), ns, m.get("timeout_s"), meta, language=lang)
     # note
     return _render(m.get("text", ""), ns)
 
@@ -1846,7 +1873,7 @@ Réponds UNIQUEMENT avec du JSON valide — aucun texte autour, pas de balises `
 
 Chaque module a un "id" court en snake_case (sans espace, ex. "resume_ventes"), un "summary" (nom court) et un "type". Réfère les sorties par cet id : {{ results.resume_ventes }}. Types :
 - "agent"     : {"id","summary","type":"agent","agent_id":"<id d'agent ci-dessous>","prompt":"..."}
-- "code"      : {"summary","type":"code","content":"# python ; définir result\\nresult = ..."}
+- "code"      : {"summary","type":"code","language":"python|javascript|typescript","content":"définir result ou une fonction main() ; dispo : flow_input, results, item, index"}
 - "tool"      : {"summary","type":"tool","server_id":"<nom de serveur>","tool":"<nom d'outil>","args":{}}
 - "note"      : {"summary","type":"note","text":"..."}
 - "forloop"   : {"summary","type":"forloop","iterator":"<expr liste>","modules":[...]}

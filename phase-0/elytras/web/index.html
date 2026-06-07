@@ -1320,7 +1320,7 @@ function redrawEdges(){ const svg=$('#flow_svg'); if(!svg)return; svg.querySelec
 function nodeSVG(m,i){
   const p=nodePos(m,i), meta=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'}, sel=selNode===m.id;
   const hasRes=Object.prototype.hasOwnProperty.call(lastResults,m.id);
-  const sub=m.type==='agent'?(m.agent_id||''):m.type==='tool'?(m.tool||'outil'):m.type==='code'?'python':CONTAINERS.includes(m.type)?'double-clic : ouvrir':'';
+  const sub=m.type==='agent'?(m.agent_id||''):m.type==='tool'?(m.tool||'outil'):m.type==='code'?(m.language||'python'):CONTAINERS.includes(m.type)?'double-clic : ouvrir':'';
   return `<g transform="translate(${p.x},${p.y})" data-id="${m.id}" class="flnode" style="cursor:grab">
     <rect width="${NODE_W}" height="${NODE_H}" rx="9" fill="${sel?'#fff':'#eef1f5'}" stroke="${sel?'var(--acc)':'#d0d5dd'}" stroke-width="${sel?2:1}"/>
     <rect width="4" height="${NODE_H}" rx="2" fill="${meta.color}"/>
@@ -1430,8 +1430,14 @@ function typeFields(m){
     return `<select onchange="mEdit('server_id',this.value)" style="${SELST};width:100%"><option value="">— serveur MCP —</option>${srvs}</select>
       <input onchange="mEdit('tool',this.value)" value="${esc(m.tool||'')}" placeholder="nom de l'outil" style="margin-top:6px;width:100%">
       <textarea rows="3" class="tmpl" onchange="mEditJSON('args',this.value)" placeholder='args JSON — {"q":"{{ flow_input.x }}"}' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.args||{},null,1))}</textarea>`; }
-  if(m.type==='code') return `<textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
-      <div class="sm muted" style="margin-top:3px">Définis <code>result</code> (ou une fonction <code>main()</code>). Dispo : <code>flow_input</code>, <code>results</code>, <code>item</code>, <code>index</code>. Exécuté en sous-processus Python isolé.</div>`;
+  if(m.type==='code'){ const L=m.language||'python';
+    return `<select onchange="mEdit('language',this.value)" style="${SELST};margin-bottom:6px;max-width:200px">
+        <option value="python" ${L==='python'?'selected':''}>Python</option>
+        <option value="javascript" ${L==='javascript'?'selected':''}>JavaScript</option>
+        <option value="typescript" ${L==='typescript'?'selected':''}>TypeScript</option>
+      </select>
+      <textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
+      <div class="sm muted" style="margin-top:3px">Définis <code>result</code> (ou une fonction <code>main()</code>). Dispo : <code>flow_input</code>, <code>results</code>, <code>item</code>, <code>index</code>, <code>input_dir</code>, <code>output_dir</code>. Sous-processus isolé (réseau coupé, FS lecture seule).</div>`; }
   if(m.type==='note') return `<textarea rows="3" class="tmpl" onchange="mEdit('text',this.value)" placeholder="note / jalon — réf {{ results.id }}" style="width:100%">${esc(m.text||'')}</textarea>`;
   if(m.type==='forloop') return `<input onchange="mEdit('iterator',this.value)" value="${esc(m.iterator||'')}" placeholder="itérateur (expr liste) — results.x ou [1,2,3]" style="width:100%">
       <label class="sm" style="display:block;margin-top:5px"><input type="checkbox" ${m.parallel?'checked':''} onchange="mEdit('parallel',this.checked)"> parallèle (séquentiel pour l'instant)</label>

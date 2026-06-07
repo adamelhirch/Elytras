@@ -82,7 +82,8 @@ def _normalize_module(m: dict) -> dict:
         m.setdefault("tool", "")
         m.setdefault("args", {})
     elif t == "code":
-        m.setdefault("language", "python")
+        lang = str(m.get("language") or "python").lower()
+        m["language"] = lang if lang in ("python", "javascript", "typescript") else "python"
         m.setdefault("content", "result = None")
     elif t == "note":
         m.setdefault("text", "")
