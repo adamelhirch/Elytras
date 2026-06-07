@@ -697,13 +697,40 @@ class LoginReq(BaseModel):
 @app.post("/providers/login")
 def providers_login(req: LoginReq, actor: str = Depends(_need("provider.manage"))):
     """Démarre le login OAuth d'un provider d'abonnement (Codex/Claude/Gemini).
-    Renvoie l'URL à ouvrir ; le callback loopback est capté par le cœur."""
+    Renvoie l'URL à ouvrir ; le callback loopback est capté par le cœur (cas local)."""
     if req.provider not in provider_auth.SPECS:
         return JSONResponse({"error": "provider inconnu"}, status_code=404)
     try:
         return {"auth_url": prov_auth.start_login(req.provider, req.user_id)}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+class ManualCallbackReq(BaseModel):
+    provider: str
+    redirect_url: str = ""
+    code: str = ""
+    state: str = ""
+
+
+@app.post("/providers/manual-callback")
+def providers_manual_callback(req: ManualCallbackReq, actor: str = Depends(_need("provider.manage"))):
+    """Finalise un login provider en collant l'URL de redirection (ou le code+state).
+    Pour les déploiements DISTANTS (VM/VPS) où le callback loopback localhost n'aboutit pas."""
+    if req.provider not in provider_auth.SPECS:
+        return JSONResponse({"error": "provider inconnu"}, status_code=404)
+    code, state = req.code.strip(), req.state.strip()
+    if req.redirect_url.strip():
+        from urllib.parse import parse_qs, urlparse
+        q = parse_qs(urlparse(req.redirect_url.strip()).query)
+        code = (q.get("code") or [code])[0]
+        state = (q.get("state") or [state])[0]
+    if not code:
+        return JSONResponse({"error": "code introuvable dans l'URL collée"}, status_code=400)
+    ok, msg = prov_auth.manual_exchange(req.provider, DEFAULT_USER, code, state)
+    if not ok:
+        return JSONResponse({"error": msg}, status_code=400)
+    return {"ok": True, "message": msg}
 
 
 # ───────────────────────── Chat ─────────────────────────

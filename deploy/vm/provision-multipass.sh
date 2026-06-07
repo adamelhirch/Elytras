@@ -33,15 +33,23 @@ tar czf "$TGZ" -C "$ROOT" \
   phase-0 gateway deploy
 multipass transfer "$TGZ" "$NAME":/home/ubuntu/elytras-src.tgz
 rm -f "$TGZ"
-multipass exec "$NAME" -- bash -lc 'rm -rf ~/elytras && mkdir -p ~/elytras && tar xzf ~/elytras-src.tgz -C ~/elytras && rm ~/elytras-src.tgz'
+# Décompresse SANS effacer la config existante (.env préservé) → re-lancer = mise à jour du code.
+multipass exec "$NAME" -- bash -lc 'mkdir -p ~/elytras && tar xzf ~/elytras-src.tgz -C ~/elytras && rm ~/elytras-src.tgz'
+HAS_ENV="$(multipass exec "$NAME" -- bash -lc 'test -f ~/elytras/deploy/.env && echo yes || echo no')"
 
 IP="$(multipass info "$NAME" | awk '/IPv4/{print $2; exit}')"
 echo ""
 echo "✅ VM '$NAME' prête (IP ${IP:-?})."
 echo ""
-echo "   Étape suivante — onboarding + déploiement DANS la VM :"
-echo "     multipass shell $NAME"
-echo "     cd ~/elytras/deploy && ./install.sh"
+if [ "$HAS_ENV" = "yes" ]; then
+  echo "   Config déjà présente → MISE À JOUR du code :"
+  echo "     multipass shell $NAME"
+  echo "     cd ~/elytras/deploy && docker compose up -d --build"
+else
+  echo "   Premier déploiement — onboarding DANS la VM :"
+  echo "     multipass shell $NAME"
+  echo "     cd ~/elytras/deploy && ./install.sh"
+fi
 echo "   Puis, depuis ton Mac, ouvre :  http://${IP:-<ip>}"
 echo ""
 echo "   Gérer : multipass list | multipass stop $NAME | multipass start $NAME | multipass delete $NAME --purge"

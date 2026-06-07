@@ -436,7 +436,13 @@ async function loadProviders(){
       <span class="dot ${p.connected?'ok':'ko'}"></span><b>${esc(p.label)}</b>
       ${p.connected
         ? `<span class="det">connecté${p.account?(' · '+esc(p.account)):''}</span>`
-        : `<span class="det"><button class="ghost sm" style="padding:4px 10px" onclick="connectProvider('${esc(p.provider)}')">Se connecter</button></span>`}
+        : `<span class="det" style="flex-direction:column;align-items:flex-start;gap:6px">
+             <button class="ghost sm" style="padding:4px 10px" onclick="connectProvider('${esc(p.provider)}')">Se connecter</button>
+             <div class="sm" style="display:flex;gap:6px;align-items:center;width:100%">
+               <input id="mcb_${esc(p.provider)}" placeholder="VM/VPS : colle ici l'URL de redirection (…?code=…)" style="flex:1;min-width:200px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px;font-size:12px">
+               <button class="ghost sm" style="padding:4px 10px" onclick="manualProvider('${esc(p.provider)}')">Valider</button>
+             </div>
+           </span>`}
     </div>`).join('');
   $('#providers').innerHTML = rows + `<div class="row"><span class="pill">actif</span>
       <span class="det">provider ${esc(d.active.provider)}${d.active.model?(' · '+esc(d.active.model)):''}</span></div>`;
@@ -446,8 +452,15 @@ async function connectProvider(name){
   const d=await jpost('/providers/login',{provider:name});
   if(d.error){if(w)w.close();banner(d.error,'ko');return}
   if(w)w.location=d.auth_url; else window.location=d.auth_url;
-  banner('Autorise '+esc(name)+' dans l\'onglet ouvert, puis reviens ici.','ok');
+  banner('Autorise '+esc(name)+' dans l\'onglet ouvert. En local, ça se connecte tout seul ; sur VM/VPS, copie l\'URL de redirection et colle-la ci-dessous.','ok');
   setTimeout(loadProviders, 5000);
+}
+async function manualProvider(name){
+  const el=$('#mcb_'+name); const url=((el&&el.value)||'').trim();
+  if(!url){banner('Colle l\'URL de redirection (celle qui contient ?code=…).','ko');return}
+  const d=await jpost('/providers/manual-callback',{provider:name,redirect_url:url});
+  if(d&&d.error){banner(d.error,'ko');return}
+  banner((d&&d.message)||'Provider connecté.','ok'); loadProviders();
 }
 let serversById={};
 async function loadServers(){

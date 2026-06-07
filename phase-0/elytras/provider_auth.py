@@ -229,22 +229,40 @@ class ProviderAuth:
         verifier, challenge = _pkce()
         state = secrets.token_hex(16)
         url = _auth_url(spec, challenge, state)
+        # Mémorise la session de login (verifier + state) → permet AUSSI la finalisation MANUELLE
+        # (collage du code) quand le loopback localhost ne peut pas aboutir (VM / VPS distant).
+        self._pending[provider] = {"verifier": verifier, "state": state,
+                                   "user_id": user_id, "ts": time.time()}
 
         def run():
-            self._pending[provider] = True
             try:
                 code, got_state = _capture_code(spec.callback_port, spec.callback_path)
-                if not code or got_state != state:
-                    return
-                tok = _exchange(spec, code, verifier, state)
-                self.store.save_tokens(user_id, provider, _normalize(spec, tok))
+                if code and got_state == state:
+                    tok = _exchange(spec, code, verifier, state)
+                    self.store.save_tokens(user_id, provider, _normalize(spec, tok))
+                    self._pending.pop(provider, None)      # connecté via loopback (cas local)
             except Exception:
                 pass
-            finally:
-                self._pending.pop(provider, None)
 
         threading.Thread(target=run, daemon=True).start()
         return url
+
+    def manual_exchange(self, provider: str, user_id: str, code: str, state: str = ""):
+        """Finalise le login en collant le code de redirection (déploiements distants : VM/VPS,
+        où le callback loopback localhost n'aboutit pas). Retourne (ok: bool, message: str)."""
+        p = self._pending.get(provider)
+        if not isinstance(p, dict) or not code:
+            return False, "Aucune connexion en cours — clique d'abord « Se connecter »."
+        if state and p.get("state") and state != p["state"]:
+            return False, "Le state ne correspond pas — relance « Se connecter »."
+        spec = SPECS[provider]
+        try:
+            tok = _exchange(spec, code, p["verifier"], p.get("state"))
+            self.store.save_tokens(p.get("user_id") or user_id, provider, _normalize(spec, tok))
+            self._pending.pop(provider, None)
+            return True, "Provider connecté."
+        except Exception as e:  # noqa: BLE001
+            return False, f"Échec de l'échange du code : {e}"
 
     def access_token(self, provider: str, user_id: str) -> str | None:
         rec = self.store.get_tokens(user_id, provider)
