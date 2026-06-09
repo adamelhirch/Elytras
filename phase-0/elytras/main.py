@@ -620,7 +620,8 @@ def health():
         c.close()
     return {"status": "ok", "db": "ok" if db else "down",
             "provider": os.environ.get("ELYTRAS_PROVIDER", "codex"),
-            "example_mcp": bool(os.environ.get("EXAMPLE_MCP_URL"))}
+            "example_mcp": bool(os.environ.get("EXAMPLE_MCP_URL")),
+            "sandbox": _sandbox_status()}
 
 
 # ───────────────────────── Auto-tests ─────────────────────────
@@ -1558,6 +1559,32 @@ def _run_code(content, ns, timeout_s, meta=None, language="python"):
         except Exception:
             return tail.strip()
     return stdout.strip()
+
+
+_SB_STATUS = None
+
+
+def _sandbox_status():
+    """Auto-test RÉEL du bac à sable du code : exécution + tentative réseau (doit être coupée).
+    Résultat mis en cache. Permet de vérifier que l'isolation est active (y compris en conteneur)."""
+    global _SB_STATUS
+    if _SB_STATUS is not None:
+        return _SB_STATUS
+    _c, sb = _sandbox_cmd([sys.executable, "-c", "pass"], "/x", None)
+    detail = "?"
+    try:
+        ns = {"flow_input": {}, "results": {}, "item": None, "index": None}
+        detail = _run_code("import socket\n"
+                           "try:\n"
+                           "    socket.create_connection(('1.1.1.1', 53), timeout=2)\n"
+                           "    result = 'open'\n"
+                           "except Exception:\n"
+                           "    result = 'blocked'\n", ns, 8)
+    except Exception as e:                      # mode 'on' sans bac à sable disponible → refus
+        detail = "refus:" + str(e)[:100]
+    _SB_STATUS = {"active": bool(sb), "network_blocked": detail == "blocked",
+                  "detail": detail, "mode": _SANDBOX_MODE}
+    return _SB_STATUS
 
 
 def _cache_key(meta, m, ns):

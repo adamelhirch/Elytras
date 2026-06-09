@@ -20,6 +20,11 @@ def test_js_and_ts_code_steps(client, admin, H):
     assert r["results"]["b"] == 43          # TypeScript (main() typé, chaîne results.a)
 
 
+def test_health_reports_sandbox(client):
+    sb = client.get("/health").json().get("sandbox", {})
+    assert "active" in sb and "network_blocked" in sb and "mode" in sb   # état du bac à sable visible
+
+
 def test_js_chains_flow_input(client, admin, H):
     fid = client.post("/flows", json={"name": "G"}, headers=H(admin.token)).json()["id"]
     client.patch("/flows/" + fid, json={

@@ -48,6 +48,20 @@ L'onboarding crée un jeton admin de passerelle ; `install.sh` lance la passerel
 et injecte sa clé de service dans `.env`, puis recharge l'app. Renseigne ta clé OpenRouter à
 l'onboarding (ou plus tard dans `.env`, puis `docker compose up -d`).
 
+## Bac à sable du code (Python / JS / TS)
+
+Les blocs de code des flows tournent isolés (réseau coupé, FS lecture seule) via **bubblewrap**.
+Le `docker-compose` relâche déjà seccomp/apparmor du conteneur Elytras pour que bubblewrap puisse
+créer ses namespaces. **Vérifie que l'isolation est active** : `curl http://<ip>/health` → champ
+`sandbox` → `{"active":true,"network_blocked":true}`. Si c'est bon, passe en **fail-closed**
+(refuse d'exécuter du code non isolé) en mettant dans `deploy/.env` :
+```
+ELYTRAS_CODE_SANDBOX=on
+```
+puis `docker compose up -d`. Si `active` reste `false` (noyau/hôte sans user-namespaces non
+privilégiés), garde `auto` en attendant — ou isole via gVisor/microVM pour de l'exécution de code
+client non confiance.
+
 ## Architecture des conteneurs
 
 ```
