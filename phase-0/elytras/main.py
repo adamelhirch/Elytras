@@ -18,6 +18,7 @@ import pathlib
 import re
 import secrets
 import shutil
+import smtplib
 import socket
 import subprocess
 import sys
@@ -1053,7 +1054,7 @@ def _dispatch_call(name, args, agent, meta, used, mapping):
             scope = "projet" if mscope == "project" else "perso"
             fid_new = flows.create_flow(user_id, nm, scope, mproj)
             flows.update_flow(fid_new, name=nm, summary=spec.get("summary"), inputs=spec.get("inputs"),
-                              modules=spec.get("modules"), ui=spec.get("ui"))
+                              modules=spec.get("modules"), on_error=spec.get("on_error"), ui=spec.get("ui"))
             _audit("flow", agent=agent["name"], detail="create_flow → " + nm, user_id=user_id,
                    project_id=mproj, session_id=session_id, parent_id=parent_id, initiator=agent["name"])
             used.append("create_flow:" + nm)
@@ -1072,7 +1073,7 @@ def _dispatch_call(name, args, agent, meta, used, mapping):
             full = flows.get_flow(target["id"])
             spec = _ai_edit_flow(full, args.get("instruction", ""), user_id)
             flows.update_flow(target["id"], name=spec.get("name") or full.get("name"), summary=spec.get("summary"),
-                              inputs=spec.get("inputs"), modules=spec.get("modules"), ui=spec.get("ui"))
+                              inputs=spec.get("inputs"), modules=spec.get("modules"), on_error=spec.get("on_error"), ui=spec.get("ui"))
             _audit("flow", agent=agent["name"], detail="edit_flow → " + (target.get("name") or ""), user_id=user_id,
                    project_id=mproj, session_id=session_id, parent_id=parent_id, initiator=agent["name"])
             used.append("edit_flow:" + (target.get("name") or target["id"]))
@@ -1404,6 +1405,8 @@ def _with_retry(fn, retry):
     for i in range(attempts):
         try:
             return fn()
+        except (_StopFlow, _Suspend):            # signaux de contrôle : ne pas retenter
+            raise
         except Exception as e:  # noqa: BLE001
             last = e
             if i < attempts - 1 and delay:
@@ -1592,6 +1595,170 @@ def _cache_key(meta, m, ns):
     return hashlib.sha1(raw.encode()).hexdigest()
 
 
+def _http_action(m, ns, meta):
+    """Étape http « toute faite » : requête HTTP protégée (anti-SSRF), templating, taille plafonnée."""
+    if not rbac.has_cap(meta["user_id"], "web.browse"):
+        raise PermissionError("requête HTTP non autorisée pour cet utilisateur (capacité web.browse requise)")
+    from urllib.parse import urlparse
+    method = str(m.get("method") or "GET").upper()
+    if method not in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+        method = "GET"
+    url = _render(m.get("url", ""), ns)
+    headers = {str(k): _render(v, ns) if isinstance(v, str) else v
+               for k, v in (m.get("headers") or {}).items()}
+    body = m.get("body")
+    if isinstance(body, str):
+        body = _render(body, ns)
+    timeout = float(m.get("timeout_s_http") or m.get("timeout_s") or 15)
+    max_bytes = 2_000_000
+    _audit("http", agent=m.get("summary") or "http", detail=f"{method} {urlparse(url).hostname or ''}",
+           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
+    cur = (url or "").strip()
+    kwargs = {}
+    if body not in (None, ""):
+        if isinstance(body, (dict, list)):
+            kwargs["json"] = body
+        else:
+            kwargs["content"] = str(body)
+    try:
+        r = None
+        for _ in range(5):                       # suit les redirections en revalidant chaque hôte (anti-SSRF)
+            u = urlparse(cur)
+            if u.scheme not in ("http", "https"):
+                return {"error": "schéma non autorisé (http/https uniquement)"}
+            if not u.hostname or not _host_allowed(u.hostname):
+                return {"error": "hôte non autorisé (réseau interne bloqué)"}
+            r = httpx.request(method, cur, follow_redirects=False, timeout=timeout, headers=headers, **kwargs)
+            if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
+                cur = str(httpx.URL(str(r.url)).join(r.headers["location"]))
+                kwargs.pop("json", None)         # une redirection 303/GET ne re-poste pas le corps
+                kwargs.pop("content", None)
+                method = "GET"
+                continue
+            break
+        if int(r.headers.get("content-length") or 0) > max_bytes * 3:
+            return {"error": "contenu trop volumineux"}
+        raw = r.content[:max_bytes]
+        out = {"status": r.status_code, "headers": dict(r.headers)}
+        try:
+            out["json"] = json.loads(raw.decode("utf-8", "replace"))
+        except Exception:
+            out["text"] = raw.decode("utf-8", "replace")[:max_bytes]
+        return out
+    except Exception as e:                       # noqa: BLE001
+        return {"error": str(e)[:200]}
+
+
+def _email_action(m, ns, meta):
+    """Étape email « toute faite » : envoi SMTP configuré par variables d'env. Aucun secret loggé."""
+    if not rbac.has_cap(meta["user_id"], "dispatch"):
+        raise PermissionError("envoi d'email non autorisé pour cet utilisateur (capacité dispatch requise)")
+    host = os.environ.get("SMTP_HOST")
+    if not host:
+        return {"error": "SMTP non configuré (renseigne SMTP_HOST/USER/PASS/FROM)"}
+    import email.message
+    to = _render(m.get("to", ""), ns)
+    cc = _render(m.get("cc", ""), ns)
+    subject = _render(m.get("subject", ""), ns)
+    body = _render(m.get("body", ""), ns)
+    sender = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER") or ""
+    _audit("email", agent=m.get("summary") or "email", detail=(subject or "")[:60],
+           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
+    msg = email.message.EmailMessage()
+    msg["From"] = sender
+    msg["To"] = to
+    if cc:
+        msg["Cc"] = cc
+    msg["Subject"] = subject
+    if m.get("html"):
+        msg.set_content("Votre client ne supporte pas le HTML.")
+        msg.add_alternative(body, subtype="html")
+    else:
+        msg.set_content(body)
+    port = int(os.environ.get("SMTP_PORT") or 587)
+    user = os.environ.get("SMTP_USER")
+    pwd = os.environ.get("SMTP_PASS")
+    use_tls = str(os.environ.get("SMTP_TLS", "1")).lower() not in ("0", "false", "")
+    try:
+        with smtplib.SMTP(host, port, timeout=20) as srv:
+            if use_tls:
+                srv.starttls()
+            if user and pwd:
+                srv.login(user, pwd)
+            srv.send_message(msg)
+        rcpts = [x for x in (to, cc) if x]
+        return {"sent": True, "to": to, "cc": cc or None, "subject": subject, "recipients": rcpts}
+    except Exception as e:                       # noqa: BLE001
+        return {"error": "échec d'envoi SMTP : " + str(e)[:200]}
+
+
+def _sql_action(m, ns, meta):
+    """Étape sql « toute faite » : requête Postgres paramétrée. Le connection_url n'est JAMAIS loggé."""
+    if not rbac.has_cap(meta["user_id"], "code.execute"):
+        raise PermissionError("requête SQL non autorisée pour cet utilisateur (capacité code.execute requise)")
+    if psycopg is None:
+        return {"error": "psycopg non installé"}
+    conn_url = (m.get("connection_url") or "").strip() or os.environ.get("DATABASE_URL") or ""
+    if conn_url:
+        conn_url = _render(conn_url, ns)
+    if not conn_url:
+        return {"error": "base non configurée"}
+    query = _render(m.get("query", ""), ns)
+    params = m.get("params")
+    if isinstance(params, dict):
+        params = {k: (_render(v, ns) if isinstance(v, str) else v) for k, v in params.items()}
+    elif isinstance(params, (list, tuple)):
+        params = [(_render(v, ns) if isinstance(v, str) else v) for v in params]
+    _audit("sql", agent=m.get("summary") or "sql", detail=(query or "")[:60].replace("\n", " "),
+           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
+    try:
+        with psycopg.connect(conn_url, connect_timeout=10) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, params or None)     # requête PARAMÉTRÉE (pas de concat)
+                if cur.description:                    # SELECT → lignes en dicts (plafond 1000)
+                    cols = [c.name for c in cur.description]
+                    rows = cur.fetchmany(1000)
+                    return [dict(zip(cols, r)) for r in rows]
+                conn.commit()
+                return {"rowcount": cur.rowcount}
+    except Exception as e:                       # noqa: BLE001
+        return {"error": str(e)[:200]}           # n'expose jamais le connection_url
+
+
+def _trigger_action(m, ns, meta):
+    """Étape trigger : exécute du code qui renvoie une LISTE d'items, déduplique contre l'état stocké,
+    renvoie uniquement les nouveaux. Si aucun nouvel item → stoppe proprement le flow (résultat []).
+    """
+    if not rbac.has_cap(meta["user_id"], "code.execute"):
+        raise PermissionError("trigger non autorisé pour cet utilisateur (capacité code.execute requise)")
+    lang = (m.get("language") or "python").lower()
+    _audit("trigger", agent=m.get("summary") or "trigger", detail=lang,
+           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
+    out = _run_code(m.get("content", ""), ns, m.get("timeout_s"), meta, language=lang)
+    items = out if isinstance(out, list) else ([] if out in (None, "") else [out])
+    key = m.get("key") or ""
+
+    def _item_key(it):
+        if key and isinstance(it, dict) and key in it:
+            return str(it[key])
+        return json.dumps(it, sort_keys=True, default=str, ensure_ascii=False)
+
+    state_key = f"{meta.get('fid', '')}:{m.get('id', '')}"
+    seen = set((filestore.items("flow_trigger_state").get(state_key) or {}).get("seen") or [])
+    fresh, new_keys = [], []
+    for it in items:
+        k = _item_key(it)
+        if k not in seen:
+            fresh.append(it)
+            new_keys.append(k)
+    if new_keys:
+        merged = list(seen) + new_keys
+        filestore.put("flow_trigger_state", state_key, {"seen": merged[-5000:]})   # borne l'historique
+    if not fresh:
+        raise _StopFlow([])                       # rien de neuf → stoppe le flow proprement (statut done)
+    return fresh
+
+
 def _dispatch_leaf(m, ns, meta):
     t = m.get("type")
     if t == "agent":
@@ -1627,6 +1794,14 @@ def _dispatch_leaf(m, ns, meta):
         _audit("code", agent=m.get("summary") or "code", detail=lang, user_id=meta["mowner"] or meta["user_id"],
                project_id=meta["mproj"], parent_id=meta["root"])
         return _run_code(m.get("content", ""), ns, m.get("timeout_s"), meta, language=lang)
+    if t == "http":
+        return _http_action(m, ns, meta)
+    if t == "email":
+        return _email_action(m, ns, meta)
+    if t == "sql":
+        return _sql_action(m, ns, meta)
+    if t == "trigger":
+        return _trigger_action(m, ns, meta)
     # note
     return _render(m.get("text", ""), ns)
 
@@ -1687,6 +1862,11 @@ def _exec_one(m, ns, meta):
     st = m.get("stop_after_if") or {}
     if st.get("enabled") and bool(_eval(st.get("expr"), ns)):
         raise _StopFlow(res)
+    er = m.get("early_return") or {}
+    if er.get("enabled"):
+        expr = (er.get("expr") or "").strip()
+        if not expr or bool(_eval(expr, ns)):    # expr vide → toujours ; sinon condition vraie
+            raise _StopFlow(res)
     return res, False
 
 
@@ -1814,6 +1994,21 @@ def _top_run(flow, ns, meta, task_steps, start=0):
                 continue
             task_steps[i]["status"] = "error"
             task_steps[i]["error"] = str(e)
+            handlers = flow.get("on_error") or []
+            if handlers:                          # gestionnaire d'erreurs du flow → on ne plante pas
+                ns["error"] = _wrap({"message": str(e), "step": m.get("summary") or m.get("id")})
+                _task_set(tid, steps=task_steps, status="running")
+                try:
+                    handled = _run_modules(handlers, ns, meta)
+                except Exception as he:           # noqa: BLE001 — handler en échec : on remonte l'erreur initiale
+                    _task_set(tid, steps=task_steps, status="error", result=str(e))
+                    return {"task_id": tid, "status": "error", "error": str(e),
+                            "failed_step": m.get("summary"), "handler_error": str(he),
+                            "results": _plain(ns["results"])}
+                _task_set(tid, status="error_handled", result=_short(handled))
+                return {"task_id": tid, "status": "error_handled", "error": str(e),
+                        "failed_step": m.get("summary"), "handler_result": handled,
+                        "results": _plain(ns["results"])}
             _task_set(tid, steps=task_steps, status="error", result=str(e))
             return {"task_id": tid, "status": "error", "error": str(e), "failed_step": m.get("summary"),
                     "results": _plain(ns["results"])}
@@ -1912,6 +2107,10 @@ Chaque module a un "id" court en snake_case (sans espace, ex. "resume_ventes"), 
 - "code"      : {"summary","type":"code","language":"python|javascript|typescript","content":"définir result ou une fonction main() ; dispo : flow_input, results, item, index"}
 - "tool"      : {"summary","type":"tool","server_id":"<nom de serveur>","tool":"<nom d'outil>","args":{}}
 - "note"      : {"summary","type":"note","text":"..."}
+- "http"      : {"summary","type":"http","method":"GET|POST|PUT|PATCH|DELETE","url":"https://...","headers":{},"body":""}  (requête HTTP ; URL publique uniquement)
+- "email"     : {"summary","type":"email","to":"...","subject":"...","body":"...","html":false}  (envoi SMTP)
+- "sql"       : {"summary","type":"sql","connection_url":"","query":"SELECT ... WHERE x=%s","params":[]}  (Postgres paramétré)
+- "trigger"   : {"summary","type":"trigger","language":"python","content":"result = [ ... ]","key":"id"}  (renvoie une liste ; ne garde que les nouveaux items, stoppe si rien de neuf)
 - "forloop"   : {"summary","type":"forloop","iterator":"<expr liste>","modules":[...]}
 - "branchone" : {"summary","type":"branchone","branches":[{"summary","expr":"<condition>","modules":[...]}],"default_modules":[...]}
 - "branchall" : {"summary","type":"branchall","branches":[{"summary","modules":[...]}]}
@@ -1919,6 +2118,8 @@ Chaque module a un "id" court en snake_case (sans espace, ex. "resume_ventes"), 
 - "approval"  : {"summary","type":"approval","message":"..."}  (validation humaine ; uniquement au niveau racine)
 
 Références : dans les textes/prompts, {{ flow_input.nom }} et {{ results.<idÉtape> }}. Dans une étape code : flow_input.x et results.x. Dans les expressions (iterator/expr/condition) : du Python sur flow_input, results, item, index.
+
+Optionnel : le flow peut porter un champ "on_error":[ ...modules... ] (gestionnaire exécuté si une étape échoue ; {{ error.message }} dispo). Chaque module peut porter "early_return":{"enabled":true,"expr":"<condition ou vide>"} pour arrêter le flow et renvoyer le résultat courant.
 
 Règles : reste simple et exécutable (≤ 8 étapes) ; n'emploie une étape "tool" QUE si l'outil figure dans la liste fournie, sinon préfère "agent" ou "code" ; n'invente aucun agent/outil/serveur hors des listes. Réponds en JSON pur."""
 
@@ -1972,11 +2173,12 @@ def _coerce_flow_spec(data, ags, old_pos=None):
         return out
 
     modules = fix(data.get("modules"))
+    on_error = fix(data.get("on_error")) if isinstance(data.get("on_error"), list) else []
     inputs = data.get("inputs") if isinstance(data.get("inputs"), list) else []
     old_pos = old_pos or {}
     pos = {m["id"]: (old_pos.get(m["id"]) or {"x": 40, "y": 30 + i * 86}) for i, m in enumerate(modules)}
     return {"name": data.get("name") or "Flow IA", "summary": data.get("summary", ""),
-            "inputs": inputs, "modules": modules, "ui": {"pos": pos}}
+            "inputs": inputs, "modules": modules, "on_error": on_error, "ui": {"pos": pos}}
 
 
 def _flow_ai_context(user_id):
@@ -3008,6 +3210,7 @@ class FlowUpdateReq(BaseModel):
     description: str | None = None
     inputs: list | None = None
     modules: list | None = None
+    on_error: list | None = None
     ui: dict | None = None
     scope: str | None = None
     project_id: str | None = None
@@ -3017,7 +3220,7 @@ class FlowUpdateReq(BaseModel):
 @app.patch("/flows/{fid}")
 def patch_flow(fid: str, req: FlowUpdateReq, actor: str = Depends(_need("flow.edit"))):
     ok = flows.update_flow(fid, name=req.name, summary=req.summary, description=req.description,
-                           inputs=req.inputs, modules=req.modules, ui=req.ui,
+                           inputs=req.inputs, modules=req.modules, on_error=req.on_error, ui=req.ui,
                            scope=req.scope, project_id=req.project_id)
     return flows.get_flow(fid) if ok else JSONResponse({"error": "flow introuvable"}, status_code=404)
 

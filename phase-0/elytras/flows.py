@@ -25,7 +25,7 @@ import uuid
 
 from . import filestore
 
-LEAF_TYPES = ("agent", "tool", "code", "note")
+LEAF_TYPES = ("agent", "tool", "code", "note", "http", "email", "sql", "trigger")
 CONTAINER_TYPES = ("forloop", "branchone", "branchall", "whileloop")
 ALL_TYPES = LEAF_TYPES + CONTAINER_TYPES + ("approval",)
 
@@ -44,6 +44,7 @@ def _advanced_defaults() -> dict:
         "skip_if": {"enabled": False, "expr": ""},
         "sleep_s": 0,
         "continue_on_error": False,
+        "early_return": {"enabled": False, "expr": ""},
     }
 
 
@@ -87,6 +88,28 @@ def _normalize_module(m: dict) -> dict:
         lang = str(m.get("language") or "python").lower()
         m["language"] = lang if lang in ("python", "javascript", "typescript") else "python"
         m.setdefault("content", "result = None")
+    elif t == "http":
+        meth = str(m.get("method") or "GET").upper()
+        m["method"] = meth if meth in ("GET", "POST", "PUT", "PATCH", "DELETE") else "GET"
+        m.setdefault("url", "")
+        m.setdefault("headers", {})
+        m.setdefault("body", "")
+        m.setdefault("timeout_s_http", 15)
+    elif t == "email":
+        m.setdefault("to", "")
+        m.setdefault("cc", "")
+        m.setdefault("subject", "")
+        m.setdefault("body", "")
+        m.setdefault("html", False)
+    elif t == "sql":
+        m.setdefault("connection_url", "")
+        m.setdefault("query", "")
+        m.setdefault("params", [])
+    elif t == "trigger":
+        lang = str(m.get("language") or "python").lower()
+        m["language"] = lang if lang in ("python", "javascript", "typescript") else "python"
+        m.setdefault("content", "result = []")
+        m.setdefault("key", "")
     elif t == "note":
         m.setdefault("text", "")
     elif t == "approval":
@@ -106,6 +129,8 @@ def _normalize(f: dict) -> dict:
     f.setdefault("ui", {"pos": {}})
     f.setdefault("webhook_token", None)
     f["modules"] = [_normalize_module(m) for m in f["modules"]]
+    f.setdefault("on_error", [])
+    f["on_error"] = [_normalize_module(m) for m in (f.get("on_error") or [])]
     # normalise le schéma d'entrées
     norm_inputs = []
     for it in f["inputs"]:
@@ -129,6 +154,7 @@ def list_flows(user_id, project_ids=None) -> list[dict]:
                         "project_id": f.get("project_id"), "owner_id": f.get("owner_id"),
                         "modules": f.get("modules") or f.get("steps") or [],
                         "inputs": f.get("inputs") or [], "summary": f.get("summary", ""),
+                        "on_error": f.get("on_error") or [],
                         "webhook_token": f.get("webhook_token")})
     return out
 
@@ -151,7 +177,7 @@ def update_flow(fid, **fields) -> bool:
     f = filestore.items("flows").get(fid)
     if not f:
         return False
-    for k in ("name", "summary", "description", "inputs", "modules", "ui", "scope", "project_id"):
+    for k in ("name", "summary", "description", "inputs", "modules", "on_error", "ui", "scope", "project_id"):
         if k in fields and fields[k] is not None:
             f[k] = fields[k]
     if "modules" in fields and fields["modules"] is not None:

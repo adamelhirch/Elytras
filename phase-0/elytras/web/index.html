@@ -1201,6 +1201,8 @@ const SELST='background:#ffffff;border:1px solid var(--line);border-radius:8px;c
 const CONTAINERS=['forloop','whileloop','branchone','branchall'];
 const TYPE_META={agent:{icon:'🤖',label:'Agent IA',color:'#7c5cff'},tool:{icon:'🔌',label:'Outil MCP',color:'#3a7afe'},
  code:{icon:'</>',label:'Code',color:'#2ea043'},note:{icon:'📝',label:'Note',color:'#667085'},
+ http:{icon:'🌐',label:'Requête HTTP',color:'#0aa2c0'},email:{icon:'✉️',label:'Email',color:'#d6336c'},
+ sql:{icon:'🗄️',label:'SQL',color:'#6741d9'},trigger:{icon:'📡',label:'Trigger',color:'#f08c00'},
  forloop:{icon:'🔁',label:'Boucle for',color:'#d29922'},whileloop:{icon:'♾️',label:'Boucle while',color:'#d29922'},
  branchone:{icon:'🔀',label:'Branche (one)',color:'#bf5af2'},branchall:{icon:'🔀',label:'Branches (all)',color:'#bf5af2'},
  approval:{icon:'✋',label:'Approbation',color:'#e0533d'}};
@@ -1310,7 +1312,7 @@ function renderFlow(){
     return;
   }
   const mods=levelModules();
-  const palette=['agent','tool','code','note','forloop','whileloop','branchone','branchall']
+  const palette=['agent','tool','code','note','http','email','sql','trigger','forloop','whileloop','branchone','branchall']
     .map(t=>`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('${t}')">+ ${TYPE_META[t].icon} ${TYPE_META[t].label}</button>`).join('');
   // — barre d'outils (haut de page) : nom + actions du flow courant —
   if(acts) acts.innerHTML=`
@@ -1506,7 +1508,7 @@ let _insertAt=null;
 function openInsertPalette(at,evt){
   closeInsertPalette(); _insertAt=at;
   const wrap=$('#flow_canvas'); if(!wrap)return; const r=wrap.getBoundingClientRect();
-  const types=['agent','tool','code','note','forloop','whileloop','branchone','branchall'];
+  const types=['agent','tool','code','note','http','email','sql','trigger','forloop','whileloop','branchone','branchall'];
   if(!flowPath.length) types.push('approval');
   const items=types.map(t=>{ const meta=TYPE_META[t];
     return `<div class="pop-item" onclick="insertModuleAt('${t}')"><span class="pop-ic" style="background:${meta.color}">${meta.icon}</span><span>${esc(meta.label)}</span></div>`;
@@ -1529,11 +1531,16 @@ function newName(t){ return (TYPE_META[t]?TYPE_META[t].label:t)+' '+(levelModule
 function addModule(t,at){
   const id=Math.random().toString(36).slice(2,10);
   const m={id,summary:newName(t),type:t,retry:{attempts:0,delay_s:2,mode:'constant'},timeout_s:0,cache_ttl:0,
-    mock:{enabled:false,value:''},stop_after_if:{enabled:false,expr:''},skip_if:{enabled:false,expr:''},sleep_s:0,continue_on_error:false};
+    mock:{enabled:false,value:''},stop_after_if:{enabled:false,expr:''},skip_if:{enabled:false,expr:''},sleep_s:0,continue_on_error:false,
+    early_return:{enabled:false,expr:''}};
   if(t==='agent')Object.assign(m,{agent_id:(window._agents&&window._agents[0]&&window._agents[0].id)||'orchestrateur',prompt:''});
   else if(t==='tool')Object.assign(m,{server_id:'',tool:'',args:{}});
   else if(t==='code')Object.assign(m,{language:'python',content:'# flow_input, results, item, index dispo\nresult = None'});
   else if(t==='note')Object.assign(m,{text:''});
+  else if(t==='http')Object.assign(m,{method:'GET',url:'',headers:{},body:'',timeout_s_http:15});
+  else if(t==='email')Object.assign(m,{to:'',cc:'',subject:'',body:'',html:false});
+  else if(t==='sql')Object.assign(m,{connection_url:'',query:'',params:[]});
+  else if(t==='trigger')Object.assign(m,{language:'python',content:'# renvoie une liste d\'items\nresult = []',key:''});
   else if(t==='forloop')Object.assign(m,{iterator:'',parallel:false,modules:[]});
   else if(t==='whileloop')Object.assign(m,{condition:'',max_iter:100,modules:[]});
   else if(t==='branchone')Object.assign(m,{branches:[{summary:'branche 1',expr:'',modules:[]}],default_modules:[]});
@@ -1633,6 +1640,34 @@ function typeFields(m){
       <textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
       <div class="sm muted" style="margin-top:3px">Définis <code>result</code> (ou une fonction <code>main()</code>). Dispo : <code>flow_input</code>, <code>results</code>, <code>item</code>, <code>index</code>, <code>input_dir</code>, <code>output_dir</code>. Sous-processus isolé (réseau coupé, FS lecture seule).</div>`; }
   if(m.type==='note') return `<textarea rows="3" class="tmpl" onchange="mEdit('text',this.value)" placeholder="note / jalon — réf {{ results.id }}" style="width:100%">${esc(m.text||'')}</textarea>`;
+  if(m.type==='http'){ const MM=m.method||'GET';
+    return `<select onchange="mEdit('method',this.value)" style="${SELST};margin-bottom:6px;max-width:130px">
+        ${['GET','POST','PUT','PATCH','DELETE'].map(x=>`<option ${MM===x?'selected':''}>${x}</option>`).join('')}</select>
+      <input onchange="mEdit('url',this.value)" value="${esc(m.url||'')}" placeholder="https://api.exemple.com/v1/… (URL publique — réf {{ flow_input.x }})" style="width:100%">
+      <textarea rows="2" class="tmpl" onchange="mEditJSON('headers',this.value)" placeholder='headers JSON — {"Authorization":"Bearer …"}' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.headers||{},null,1))}</textarea>
+      <textarea rows="3" class="tmpl" onchange="mEdit('body',this.value)" placeholder='corps (texte ou JSON) — réf {{ results.id }}' style="margin-top:6px;width:100%">${esc(typeof m.body==='string'?m.body:JSON.stringify(m.body||'',null,1))}</textarea>
+      <div class="sm muted" style="margin-top:3px">Réseau interne bloqué (anti-SSRF) ; http/https uniquement ; réponse plafonnée (~2 Mo). Capacité <code>web.browse</code> requise.</div>`; }
+  if(m.type==='email'){
+    return `<input onchange="mEdit('to',this.value)" value="${esc(m.to||'')}" placeholder="destinataire(s) — a@x.com, b@y.com" style="width:100%">
+      <input onchange="mEdit('cc',this.value)" value="${esc(m.cc||'')}" placeholder="cc (optionnel)" style="margin-top:6px;width:100%">
+      <input class="tmpl" onchange="mEdit('subject',this.value)" value="${esc(m.subject||'')}" placeholder="objet — réf {{ flow_input.x }}" style="margin-top:6px;width:100%">
+      <textarea rows="4" class="tmpl" onchange="mEdit('body',this.value)" placeholder="corps du message — réf {{ results.id }}" style="margin-top:6px;width:100%">${esc(m.body||'')}</textarea>
+      <label class="sm" style="display:block;margin-top:5px"><input type="checkbox" ${m.html?'checked':''} onchange="mEdit('html',this.checked)"> corps en HTML</label>
+      <div class="sm muted" style="margin-top:3px">SMTP via variables d'env (SMTP_HOST/USER/PASS/FROM). Capacité <code>dispatch</code> requise.</div>`; }
+  if(m.type==='sql'){
+    return `<input onchange="mEdit('connection_url',this.value)" value="${esc(m.connection_url||'')}" placeholder="connection_url (vide → env DATABASE_URL)" style="width:100%">
+      <textarea rows="4" class="tmpl pycode" spellcheck="false" onchange="mEdit('query',this.value)" placeholder="SELECT … WHERE col = %s   (utilise des paramètres %s)" style="margin-top:6px;width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.query||'')}</textarea>
+      <textarea rows="2" class="tmpl" onchange="mEditJSON('params',this.value)" placeholder='params JSON — ["{{ flow_input.id }}"]' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.params||[],null,1))}</textarea>
+      <div class="sm muted" style="margin-top:3px">Postgres (psycopg) ; requête paramétrée ; lignes plafonnées (~1000). Capacité <code>code.execute</code> requise. L'URL n'est jamais journalisée.</div>`; }
+  if(m.type==='trigger'){ const L=m.language||'python';
+    return `<select onchange="mEditLang(this.value)" style="${SELST};margin-bottom:6px;max-width:200px">
+        <option value="python" ${L==='python'?'selected':''}>🐍 Python</option>
+        <option value="javascript" ${L==='javascript'?'selected':''}>🟨 JavaScript</option>
+        <option value="typescript" ${L==='typescript'?'selected':''}>🔷 TypeScript</option>
+      </select>
+      <textarea rows="6" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
+      <input onchange="mEdit('key',this.value)" value="${esc(m.key||'')}" placeholder="champ identifiant des items (ex. id) — sinon item entier" style="margin-top:6px;width:100%">
+      <div class="sm muted" style="margin-top:3px">Le code doit renvoyer une <b>liste</b>. Seuls les items <b>nouveaux</b> (non vus) sont transmis ; si aucun, le flow s'arrête proprement. Capacité <code>code.execute</code> requise.</div>`; }
   if(m.type==='forloop') return `<input onchange="mEdit('iterator',this.value)" value="${esc(m.iterator||'')}" placeholder="itérateur (expr liste) — results.x ou [1,2,3]" style="width:100%">
       <label class="sm" style="display:block;margin-top:5px"><input type="checkbox" ${m.parallel?'checked':''} onchange="mEdit('parallel',this.checked)"> parallèle (séquentiel pour l'instant)</label>
       <div class="sm muted" style="margin-top:4px">Dans la boucle : <code>item</code>, <code>index</code>. <a href="#" onclick="drillSel();return false">ouvrir le corps ▸</a></div>`;
@@ -1668,7 +1703,7 @@ function branchTabs(){
 }
 function switchBranch(bi){ flowPath[flowPath.length-1].bi=bi; selNode=null; renderFlow(); }
 function advancedFields(m){
-  const r=m.retry||{},mk=m.mock||{},sk=m.skip_if||{},st=m.stop_after_if||{};
+  const r=m.retry||{},mk=m.mock||{},sk=m.skip_if||{},st=m.stop_after_if||{},er=m.early_return||{};
   return `<div class="sm" style="margin-top:8px;display:grid;gap:6px">
     <div>Retry : <input type="number" value="${r.attempts||0}" onchange="mEditP('retry','attempts',parseInt(this.value)||0)" style="max-width:50px"> ess., délai <input type="number" value="${r.delay_s||0}" onchange="mEditP('retry','delay_s',parseFloat(this.value)||0)" style="max-width:50px">s
       <select onchange="mEditP('retry','mode',this.value)" style="${SELST}"><option value="constant" ${r.mode==='constant'?'selected':''}>constant</option><option value="exponential" ${r.mode==='exponential'?'selected':''}>expo</option></select></div>
@@ -1679,6 +1714,8 @@ function advancedFields(m){
     ${sk.enabled?`<input value="${esc(sk.expr||'')}" onchange="mEditP('skip_if','expr',this.value)" placeholder="flow_input.x == 0" style="width:100%">`:''}
     <label><input type="checkbox" ${st.enabled?'checked':''} onchange="mToggle('stop_after_if','enabled',this.checked)"> early stop si (expr)</label>
     ${st.enabled?`<input value="${esc(st.expr||'')}" onchange="mEditP('stop_after_if','expr',this.value)" placeholder="results.${esc(m.id)} == 'fini'" style="width:100%">`:''}
+    <label><input type="checkbox" ${er.enabled?'checked':''} onchange="mToggle('early_return','enabled',this.checked)"> early return (arrête le flow et renvoie ce résultat)</label>
+    ${er.enabled?`<input value="${esc(er.expr||'')}" onchange="mEditP('early_return','expr',this.value)" placeholder="condition (vide = toujours) — results.${esc(m.id)}.ok" style="width:100%">`:''}
     <label><input type="checkbox" ${m.continue_on_error?'checked':''} onchange="mEdit('continue_on_error',this.checked)"> continuer en cas d'erreur</label></div>`;
 }
 function mResultHTML(m){ if(!(m.id in lastResults))return ''; let v=lastResults[m.id]; v=typeof v==='string'?v:JSON.stringify(v,null,1);
@@ -1722,12 +1759,48 @@ function renderTriggers(){
       </div>
       <div class="sm muted" style="margin-top:6px">POST JSON sur cette URL → exécute le flow (le corps JSON devient <code>flow_input</code>).</div>
     </div>
-    <div class="panel" style="padding:16px">
+    <div class="panel" style="padding:16px;margin-bottom:14px">
       <b>🗓 Planification</b>
       <div style="margin-top:8px"><button class="ghost sm" onclick="scheduleFlow()">planifier ce flow…</button></div>
       <div class="sm muted" style="margin-top:6px">Crée une tâche planifiée (quotidienne ou cron) liée à ce flow. Retrouve et gère les planifications dans la section <b>Planificateur</b>.</div>
-    </div>`;
+    </div>
+    ${onErrorPanel()}`;
 }
+// — encart « Gestionnaire d'erreurs » (modules on_error du flow) —
+function onErrorPanel(){
+  const he=currentFlow.on_error||[];
+  const rows=he.map((m,i)=>{ const meta=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'};
+    return `<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:6px;margin-bottom:5px">
+      <span style="font-size:14px">${meta.icon}</span>
+      <input value="${esc(m.summary||'')}" onchange="errEdit(${i},'summary',this.value)" style="flex:1" placeholder="nom">
+      ${m.type==='email'
+        ? `<input value="${esc(m.to||'')}" onchange="errEdit(${i},'to',this.value)" placeholder="destinataire" style="max-width:160px">`
+        : `<span class="sm muted">code</span>`}
+      <a href="#" style="color:#dc2626" onclick="errDel(${i});return false">×</a></div>`;
+  }).join('') || `<div class="sm muted" style="margin-bottom:6px">Aucun gestionnaire. Si une étape échoue, le flow s'arrête en erreur.</div>`;
+  return `<div class="panel" style="padding:16px">
+    <b>🛟 Gestionnaire d'erreurs</b>
+    <div class="sm muted" style="margin:6px 0 10px">Modules exécutés si une étape échoue (le flow ne plante pas, statut « error_handled »). Dispo dans le handler : <code>{{ error.message }}</code>, <code>{{ error.step }}</code>.</div>
+    ${rows}
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button class="ghost sm" onclick="errAdd('email')">+ ✉️ email</button>
+      <button class="ghost sm" onclick="errAdd('code')">+ &lt;/&gt; code</button>
+    </div>
+    <div class="sm muted" style="margin-top:6px">Pense à <b>Enregistrer</b> le flow pour persister le gestionnaire.</div>
+  </div>`;
+}
+function errAdd(t){
+  const id=Math.random().toString(36).slice(2,10);
+  const m={id,summary:(TYPE_META[t]?TYPE_META[t].label:t)+' (erreur)',type:t,
+    retry:{attempts:0,delay_s:2,mode:'constant'},timeout_s:0,cache_ttl:0,
+    mock:{enabled:false,value:''},stop_after_if:{enabled:false,expr:''},skip_if:{enabled:false,expr:''},
+    sleep_s:0,continue_on_error:false,early_return:{enabled:false,expr:''}};
+  if(t==='email')Object.assign(m,{to:'',cc:'',subject:'Échec du flow {{ error.step }}',body:'Erreur : {{ error.message }}',html:false});
+  else if(t==='code')Object.assign(m,{language:'python',content:'# error.message / error.step dispo via flow_input? non : via results\nresult = None'});
+  currentFlow.on_error=currentFlow.on_error||[]; currentFlow.on_error.push(m); renderTriggers();
+}
+function errEdit(i,k,v){ const h=currentFlow.on_error||[]; if(h[i])h[i][k]=v; }
+function errDel(i){ const h=currentFlow.on_error||[]; h.splice(i,1); renderTriggers(); }
 async function genWebhook(){ const d=await jpost('/flows/'+currentFlow.id+'/webhook-token',{}); currentFlow.webhook_token=d.token; renderTriggers(); banner('Webhook généré.','ok'); }
 function copyWebhook(){ const u=location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token; if(navigator.clipboard)navigator.clipboard.writeText(u); banner('URL copiée.','ok'); }
 async function scheduleFlow(){
@@ -1773,7 +1846,7 @@ async function runFlowUI(useUpto){
   loadTasks(); loadAudit(); loadObs();
 }
 async function saveFlow(){
-  await jpatch('/flows/'+currentFlow.id,{name:currentFlow.name,summary:currentFlow.summary,inputs:currentFlow.inputs,modules:currentFlow.modules,ui:currentFlow.ui});
+  await jpatch('/flows/'+currentFlow.id,{name:currentFlow.name,summary:currentFlow.summary,inputs:currentFlow.inputs,modules:currentFlow.modules,on_error:currentFlow.on_error||[],ui:currentFlow.ui});
   banner('Flow enregistré.','ok'); loadFlows();
 }
 async function deleteFlow(){ if(!confirm('Supprimer ce flow ?'))return; await jdel('/flows/'+currentFlow.id); currentFlow=null; flowPath=[]; selNode=null; if($('#flow_select'))$('#flow_select').value=''; renderFlow(); renderTriggers(); loadFlows(); }
