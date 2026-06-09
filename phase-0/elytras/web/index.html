@@ -73,13 +73,29 @@
   .flow-stage{flex:1;min-height:0;display:flex;gap:0;position:relative}
   .flow-canvas-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
   .flow-crumb{padding:8px 18px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:none}
-  .flow-canvas{flex:1;min-height:0;overflow:auto;position:relative;
+  .flow-canvas{flex:1;min-height:0;overflow:hidden;position:relative;
     background:
-      linear-gradient(var(--line) 1px,transparent 1px) 0 0/22px 22px,
-      linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/22px 22px,
-      var(--panel2);
-    background-blend-mode:normal}
-  #flow_svg{display:block;min-width:560px}
+      radial-gradient(circle at 1px 1px, color-mix(in srgb,var(--muted) 26%,transparent) 1.4px,transparent 0) 0 0/22px 22px,
+      linear-gradient(180deg,var(--panel2),#eef1f5);
+    background-blend-mode:normal;cursor:grab;user-select:none;touch-action:none}
+  .flow-canvas.panning{cursor:grabbing}
+  #flow_svg{display:block;width:100%;height:100%}
+  #flow_svg .flnode rect.node-card{transition:stroke .12s,filter .12s}
+  #flow_svg .flnode:hover rect.node-card{filter:brightness(1.012)}
+  /* contrôle de zoom flottant */
+  .flow-zoom{position:absolute;right:14px;bottom:14px;z-index:8;display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:4px;box-shadow:0 4px 16px rgba(16,24,40,.10)}
+  .flow-zoom button{background:#fff;color:var(--txt);border:1px solid var(--line);width:30px;height:30px;padding:0;border-radius:8px;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;line-height:1}
+  .flow-zoom button:hover{background:var(--panel2);filter:none}
+  .flow-zoom .zlbl{min-width:46px;text-align:center;font-size:11.5px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;cursor:default}
+  .flow-zoom .zfit{width:auto;padding:0 9px;font-size:12px;gap:4px}
+  /* popover palette d'insertion */
+  .flow-pop{position:absolute;z-index:40;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 34px rgba(16,24,40,.18);padding:6px;min-width:180px;max-height:300px;overflow:auto;animation:popin .12s ease}
+  @keyframes popin{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+  .flow-pop .pop-title{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;padding:4px 8px 5px}
+  .flow-pop .pop-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--txt)}
+  .flow-pop .pop-item:hover{background:var(--acc-weak);color:var(--acc)}
+  .flow-pop .pop-ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex:none}
+  .flow-pop-backdrop{position:fixed;inset:0;z-index:39}
   .flow-palette{display:flex;gap:6px;flex-wrap:wrap;padding:9px 18px;border-top:1px solid var(--line);background:var(--panel);flex:none}
   .flow-side{width:340px;flex:none;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
   .flow-side-head{display:flex;align-items:center;gap:6px;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;flex:none}
@@ -1153,14 +1169,49 @@ async function loadAudit(){
 
 // ── Flows : éditeur canvas façon Windmill ──
 let currentFlow=null, flowPath=[], selNode=null, lastResults={}, flowPanel=null;
-const NODE_W=190, NODE_H=54;
+const NODE_W=210, NODE_H=58;
+// ── État pan/zoom du canvas (transform CSS sur le groupe SVG, PAS de re-render) ──
+let viewT={x:30,y:24,k:1};   // translate + scale courants
+function applyViewTransform(){
+  const g=$('#flow_view'); if(g) g.setAttribute('transform',`translate(${viewT.x},${viewT.y}) scale(${viewT.k})`);
+  const lbl=$('#flow_zoom_lbl'); if(lbl) lbl.textContent=Math.round(viewT.k*100)+'%';
+}
+function setZoom(k,cx,cy){
+  k=Math.min(2.2,Math.max(0.3,k));
+  const wrap=$('#flow_canvas'); if(wrap && cx==null){ const r=wrap.getBoundingClientRect(); cx=r.width/2; cy=r.height/2; }
+  // zoom centré sur (cx,cy) pour garder le point sous le curseur
+  const wx=(cx-viewT.x)/viewT.k, wy=(cy-viewT.y)/viewT.k;
+  viewT.k=k; viewT.x=cx-wx*k; viewT.y=cy-wy*k;
+  applyViewTransform();
+}
+function zoomBy(f){ setZoom(viewT.k*f); }
+// ajuste le contenu à l'écran (fit)
+function fitFlow(){
+  const wrap=$('#flow_canvas'); if(!wrap)return; const mods=levelModules();
+  if(!mods.length){ viewT={x:30,y:24,k:1}; applyViewTransform(); return; }
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
+  mods.forEach((m,i)=>{ const p=nodePos(m,i); minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x+NODE_W); maxY=Math.max(maxY,p.y+NODE_H); });
+  const pad=60, cw=wrap.clientWidth, ch=wrap.clientHeight;
+  const bw=(maxX-minX)+pad*2, bh=(maxY-minY)+pad*2;
+  const k=Math.min(1.4,Math.max(0.4,Math.min(cw/bw,ch/bh)));
+  viewT.k=k; viewT.x=(cw-(maxX+minX)*k)/2; viewT.y=(ch-(maxY+minY)*k)/2;
+  applyViewTransform();
+}
 const SELST='background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:5px;font-size:12px';
 const CONTAINERS=['forloop','whileloop','branchone','branchall'];
-const TYPE_META={agent:{icon:'🤖',label:'Agent IA',color:'#7c5cff'},tool:{icon:'🔧',label:'Outil MCP',color:'#3a7afe'},
- code:{icon:'🐍',label:'Code',color:'#2ea043'},note:{icon:'📝',label:'Note',color:'#667085'},
- forloop:{icon:'⟳',label:'Boucle for',color:'#d29922'},whileloop:{icon:'↻',label:'Boucle while',color:'#d29922'},
- branchone:{icon:'⑂',label:'Branche (one)',color:'#bf5af2'},branchall:{icon:'⑂',label:'Branches (all)',color:'#bf5af2'},
+const TYPE_META={agent:{icon:'🤖',label:'Agent IA',color:'#7c5cff'},tool:{icon:'🔌',label:'Outil MCP',color:'#3a7afe'},
+ code:{icon:'</>',label:'Code',color:'#2ea043'},note:{icon:'📝',label:'Note',color:'#667085'},
+ forloop:{icon:'🔁',label:'Boucle for',color:'#d29922'},whileloop:{icon:'♾️',label:'Boucle while',color:'#d29922'},
+ branchone:{icon:'🔀',label:'Branche (one)',color:'#bf5af2'},branchall:{icon:'🔀',label:'Branches (all)',color:'#bf5af2'},
  approval:{icon:'✋',label:'Approbation',color:'#e0533d'}};
+// langages de code : icône + libellé lisible
+const LANG_META={python:{icon:'🐍',label:'Python'},javascript:{icon:'🟨',label:'JavaScript'},typescript:{icon:'🔷',label:'TypeScript'}};
+// méta affichée pour un nœud (gère l'icône/le libellé selon le langage du code)
+function nodeMeta(m){
+  const base=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'};
+  if(m.type==='code'){ const lm=LANG_META[m.language]||LANG_META.python; return {icon:lm.icon,label:lm.label,color:base.color}; }
+  return base;
+}
 
 async function loadFlows(){
   const d=await jget('/flows'); const fs=d.flows||[];
@@ -1194,8 +1245,9 @@ async function editFlowAI(){
 async function openFlow(fid){
   if(!fid){currentFlow=null; renderFlow(); renderTriggers(); return}
   currentFlow=await jget('/flows/'+fid); flowPath=[]; selNode=null; lastResults={}; flowPanel=null;
+  viewT={x:30,y:24,k:1};   // réinitialise le pan/zoom à l'ouverture d'un flow
   if($('#flow_select')) $('#flow_select').value=fid;
-  renderFlow(); renderTriggers();
+  renderFlow(); renderTriggers(); setTimeout(fitFlow,0);
 }
 
 // — navigation dans les conteneurs (boucles / branches) —
@@ -1239,16 +1291,16 @@ function flowSvgH(mods){
   let maxY=160; mods.forEach((m,i)=>{const p=nodePos(m,i); maxY=Math.max(maxY,p.y+NODE_H+40);});
   return Math.max(420,maxY);
 }
-// Ajuste la hauteur du SVG pour remplir le canvas dispo (sinon = hauteur du contenu)
+// Le SVG remplit désormais 100% du canvas (le pan/zoom se fait par transform sur #flow_view).
+// Conservé pour compatibilité : ré-applique simplement la transform courante.
 function sizeFlowCanvas(){
-  const wrap=$('#flow_canvas'), svg=$('#flow_svg'); if(!wrap||!svg||!currentFlow)return;
-  const content=flowSvgH(levelModules());
-  const avail=Math.max(420, wrap.clientHeight - 2);
-  svg.setAttribute('height', Math.max(content, avail));
+  const svg=$('#flow_svg'); if(!svg||!currentFlow)return;
+  applyViewTransform();
 }
 window.addEventListener('resize', ()=>sizeFlowCanvas());
 
 function renderFlow(){
+  closeInsertPalette();
   const f=currentFlow;
   const acts=$('#flow_toolbar_actions');
   if(!f){
@@ -1277,12 +1329,21 @@ function renderFlow(){
        <div class="flow-crumb">${breadcrumb()}</div>
        <div id="flow_panel"></div>
        <div class="flow-canvas" id="flow_canvas">
-         <svg id="flow_svg" width="100%" height="${flowSvgH(mods)}">
-           <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b6bcc6"/></marker></defs>
-           ${edgesSVG(mods)}
-           ${mods.map((m,i)=>nodeSVG(m,i)).join('')}
-           ${mods.length?'':'<text x="28" y="40" fill="#666" font-size="13">Canvas vide — ajoute une étape via la palette ↓</text>'}
+         <svg id="flow_svg" xmlns="http://www.w3.org/2000/svg">
+           <defs>
+             <marker id="arrow" markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+               <path d="M0,0 L8,3.5 L0,7 Z" fill="var(--muted)"/></marker>
+             <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="160%">
+               <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#101828" flood-opacity="0.10"/></filter>
+           </defs>
+           <g id="flow_view"></g>
          </svg>
+         <div class="flow-zoom">
+           <button onclick="zoomBy(0.83)" title="Dézoomer">−</button>
+           <span class="zlbl" id="flow_zoom_lbl">100%</span>
+           <button onclick="zoomBy(1.2)" title="Zoomer">+</button>
+           <button class="zfit" onclick="fitFlow()" title="Ajuster à l'écran">⤢ ajuster</button>
+         </div>
        </div>
        <div class="flow-palette">${palette}${flowPath.length?'':`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('approval')">+ ✋ Approbation</button>`}${branchTabs()}</div>
      </div>
@@ -1296,7 +1357,32 @@ function renderFlow(){
      <div id="flow_runbar" style="padding:6px 18px 4px">${runBar()}</div>
      <div id="flow_run_out" class="sm"></div>
    </details>`;
-  renderPanel(); attachDrag(); sizeFlowCanvas();
+  renderCanvas();          // remplit #flow_view (edges + nœuds + boutons +) ; appelle déjà attachDrag()
+  renderPanel(); attachPanZoom(); applyViewTransform();
+}
+
+// (Re)dessine uniquement le contenu du canvas (groupe #flow_view) — edges, nœuds, boutons « + ».
+function renderCanvas(){
+  const g=$('#flow_view'); if(!g)return; const mods=levelModules();
+  if(!mods.length){
+    g.innerHTML=emptyCanvasSVG();
+  } else {
+    g.innerHTML = edgesSVG(mods) + mods.map((m,i)=>nodeSVG(m,i)).join('') + addButtonsSVG(mods);
+  }
+  attachDrag();
+}
+// état vide agréable, rendu dans le SVG (centré dans la vue par défaut)
+function emptyCanvasSVG(){
+  return `<g transform="translate(40,40)" style="pointer-events:none">
+    <text x="0" y="6" fill="var(--txt)" font-size="17" font-weight="700">Commence ton workflow</text>
+    <text x="0" y="30" fill="var(--muted)" font-size="13">Ajoute une première étape, ou laisse l'IA construire le flow.</text>
+  </g>
+  <g class="addbtn" data-at="0" transform="translate(40,86)" style="cursor:pointer;pointer-events:all">
+    <circle cx="20" cy="20" r="19" fill="var(--acc)"/>
+    <line x1="20" y1="12" x2="20" y2="28" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+    <line x1="12" y1="20" x2="28" y2="20" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+    <text x="50" y="26" fill="var(--muted)" font-size="13" font-weight="600" style="pointer-events:none">Ajouter une étape</text>
+  </g>`;
 }
 
 // — onglets de la page Workflows —
@@ -1308,47 +1394,139 @@ function flowTab(name){
   else if(name==='triggers') renderTriggers();
 }
 
+// — connecteurs courbes (bézier vertical) entre étapes successives —
+function edgePath(x1,y1,x2,y2){ const dy=Math.max(26,(y2-y1)*0.5);
+  return `M${x1},${y1} C ${x1},${y1+dy} ${x2},${y2-dy} ${x2},${y2}`; }
 function edgesSVG(mods){
   let s='',prev=null;
   mods.forEach((m,i)=>{ const p=nodePos(m,i), cx=p.x+NODE_W/2;
-    if(prev) s+=`<line x1="${prev.x}" y1="${prev.y}" x2="${cx}" y2="${p.y}" stroke="#b6bcc6" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+    if(prev) s+=`<path class="fledge" d="${edgePath(prev.x,prev.y,cx,p.y)}" fill="none" stroke="var(--line)" stroke-width="2" marker-end="url(#arrow)"/>`;
     prev={x:cx,y:p.y+NODE_H}; });
   return s;
 }
-function redrawEdges(){ const svg=$('#flow_svg'); if(!svg)return; svg.querySelectorAll('line').forEach(l=>l.remove());
-  svg.querySelector('defs').insertAdjacentHTML('afterend',edgesSVG(levelModules())); }
+// redessine UNIQUEMENT les edges (pendant un drag) — ne touche pas aux nœuds
+function redrawEdges(){ const g=$('#flow_view'); if(!g)return;
+  g.querySelectorAll('.fledge').forEach(l=>l.remove());
+  g.insertAdjacentHTML('afterbegin',edgesSVG(levelModules())); }
+// boutons « + » entre chaque étape et en fin de flow → ouvrent la palette d'insertion
+function addButtonsSVG(mods){
+  let s=''; const plus=(at,x,y)=>`<g class="addbtn" data-at="${at}" transform="translate(${x-11},${y-11})" style="cursor:pointer">
+      <circle cx="11" cy="11" r="11" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
+      <line x1="11" y1="6" x2="11" y2="16" stroke="var(--acc)" stroke-width="2" stroke-linecap="round"/>
+      <line x1="6" y1="11" x2="16" y2="11" stroke="var(--acc)" stroke-width="2" stroke-linecap="round"/></g>`;
+  for(let i=0;i<mods.length-1;i++){ const a=nodePos(mods[i],i), b=nodePos(mods[i+1],i+1);
+    const ax=a.x+NODE_W/2, ay=a.y+NODE_H, bx=b.x+NODE_W/2, by=b.y;
+    s+=plus(i+1,(ax+bx)/2,(ay+by)/2); }
+  const last=mods[mods.length-1], li=mods.length-1, lp=nodePos(last,li);
+  s+=plus(mods.length, lp.x+NODE_W/2, lp.y+NODE_H+30);
+  return s;
+}
 function nodeSVG(m,i){
-  const p=nodePos(m,i), meta=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'}, sel=selNode===m.id;
+  const p=nodePos(m,i), meta=nodeMeta(m), sel=selNode===m.id;
   const hasRes=Object.prototype.hasOwnProperty.call(lastResults,m.id);
-  const sub=m.type==='agent'?(m.agent_id||''):m.type==='tool'?(m.tool||'outil'):m.type==='code'?(m.language||'python'):CONTAINERS.includes(m.type)?'double-clic : ouvrir':'';
+  const st=lastResults[m.id], isErr=hasRes && st && typeof st==='object' && (st.error||st.status==='error');
+  const statColor= hasRes ? (isErr?'var(--ko)':'var(--ok)') : 'var(--muted)';
+  const sub=m.type==='agent'?(m.agent_id||''):m.type==='tool'?(m.tool||'outil'):m.type==='code'?(LANG_META[m.language]||LANG_META.python).label:CONTAINERS.includes(m.type)?'double-clic : ouvrir':'';
+  // icône texte (</>): taille réduite et police mono
+  const isText=meta.icon.length>2;
+  const icon = isText
+    ? `<text x="30" y="${NODE_H/2+5}" font-size="13" font-weight="700" fill="${meta.color}" font-family="ui-monospace,monospace" text-anchor="middle">${esc(meta.icon)}</text>`
+    : `<text x="30" y="${NODE_H/2+6}" font-size="17" text-anchor="middle">${meta.icon}</text>`;
   return `<g transform="translate(${p.x},${p.y})" data-id="${m.id}" class="flnode" style="cursor:grab">
-    <rect width="${NODE_W}" height="${NODE_H}" rx="9" fill="${sel?'#fff':'#eef1f5'}" stroke="${sel?'var(--acc)':'#d0d5dd'}" stroke-width="${sel?2:1}"/>
-    <rect width="4" height="${NODE_H}" rx="2" fill="${meta.color}"/>
-    <text x="14" y="23" font-size="15">${meta.icon}</text>
-    <text x="34" y="21" fill="#1f2533" font-size="12.5" font-weight="600">${esc(String(m.summary||meta.label)).slice(0,20)}</text>
-    <text x="34" y="38" fill="#667085" font-size="10.5">${esc(meta.label)}${sub?' · '+esc(String(sub)).slice(0,18):''}</text>
-    <circle cx="${NODE_W-12}" cy="13" r="4" fill="${hasRes?'#3ecf8e':'#b6bcc6'}"/>
+    ${sel?`<rect x="-3" y="-3" width="${NODE_W+6}" height="${NODE_H+6}" rx="13" fill="none" stroke="var(--acc)" stroke-width="2" opacity="0.55"/>`:''}
+    <rect class="node-card" width="${NODE_W}" height="${NODE_H}" rx="11" fill="var(--panel)" stroke="${sel?'var(--acc)':'var(--line)'}" stroke-width="${sel?1.5:1}" filter="url(#nodeShadow)"/>
+    <rect width="5" height="${NODE_H}" rx="2.5" fill="${meta.color}"/>
+    <circle cx="30" cy="${NODE_H/2}" r="15" fill="${meta.color}" opacity="0.12"/>
+    ${icon}
+    <text x="54" y="${NODE_H/2-3}" fill="var(--txt)" font-size="13" font-weight="600">${esc(String(m.summary||meta.label)).slice(0,22)}</text>
+    <text x="54" y="${NODE_H/2+14}" fill="var(--muted)" font-size="10.5">${esc(meta.label)}${sub?' · '+esc(String(sub)).slice(0,16):''}</text>
+    <circle class="node-stat" cx="${NODE_W-13}" cy="13" r="4.5" fill="${statColor}"/>
   </g>`;
 }
-function attachDrag(){
-  const svg=$('#flow_svg'); if(!svg)return;
-  svg.querySelectorAll('.flnode').forEach(g=>{
-    const id=g.getAttribute('data-id'); let sx,sy,ox,oy,moved=false,down=false;
-    g.addEventListener('pointerdown',e=>{ e.preventDefault(); down=true; moved=false; g.setPointerCapture(e.pointerId);
-      const mods=levelModules(),m=mods.find(x=>x.id===id),p=nodePos(m,mods.indexOf(m));
-      sx=e.clientX; sy=e.clientY; ox=p.x; oy=p.y; g.style.cursor='grabbing'; });
-    g.addEventListener('pointermove',e=>{ if(!down)return; const dx=e.clientX-sx,dy=e.clientY-sy;
-      if(Math.abs(dx)+Math.abs(dy)>3){ moved=true; const nx=Math.max(0,ox+dx),ny=Math.max(0,oy+dy);
-        g.setAttribute('transform',`translate(${nx},${ny})`); setPos(id,nx,ny); redrawEdges(); } });
-    g.addEventListener('pointerup',e=>{ down=false; g.style.cursor='grab';
-      if(!moved){ selNode=id; renderFlow(); } });
-    g.addEventListener('dblclick',()=>{ const m=findModule(id); if(m&&CONTAINERS.includes(m.type)) drillInto(m); });
+// Sélection performante : met à jour seulement l'anneau du nœud + l'inspecteur (pas de re-render du canvas)
+function selectNode(id){
+  selNode=id; renderInspector();
+  const g=$('#flow_view'); if(!g)return;
+  g.querySelectorAll('.flnode').forEach(n=>{
+    const m=levelModules().find(x=>x.id===n.getAttribute('data-id')); if(!m)return;
+    const card=n.querySelector('rect.node-card'), sel=(n.getAttribute('data-id')===id);
+    if(card){ card.setAttribute('stroke', sel?'var(--acc)':'var(--line)'); card.setAttribute('stroke-width', sel?1.5:1); }
+    let ring=n.querySelector('rect.sel-ring');
+    if(sel && !ring){ ring=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      ring.setAttribute('class','sel-ring'); ring.setAttribute('x',-3); ring.setAttribute('y',-3);
+      ring.setAttribute('width',NODE_W+6); ring.setAttribute('height',NODE_H+6); ring.setAttribute('rx',13);
+      ring.setAttribute('fill','none'); ring.setAttribute('stroke','var(--acc)'); ring.setAttribute('stroke-width',2); ring.setAttribute('opacity','0.55');
+      n.insertBefore(ring,n.firstChild);
+    } else if(!sel && ring){ ring.remove(); }
   });
 }
+// repositionne les boutons « + » après un drag (sans tout reconstruire)
+function redrawAddButtons(){ const g=$('#flow_view'); if(!g)return;
+  g.querySelectorAll('.addbtn').forEach(b=>b.remove());
+  g.insertAdjacentHTML('beforeend',addButtonsSVG(levelModules())); attachAddButtons(); }
+function attachDrag(){
+  const g=$('#flow_view'); if(!g)return;
+  g.querySelectorAll('.flnode').forEach(node=>{
+    const id=node.getAttribute('data-id'); let sx,sy,ox,oy,moved=false,down=false;
+    node.addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); down=true; moved=false; node.setPointerCapture(e.pointerId);
+      const mods=levelModules(),m=mods.find(x=>x.id===id),p=nodePos(m,mods.indexOf(m));
+      sx=e.clientX; sy=e.clientY; ox=p.x; oy=p.y; node.style.cursor='grabbing'; });
+    node.addEventListener('pointermove',e=>{ if(!down)return; const dx=(e.clientX-sx)/viewT.k,dy=(e.clientY-sy)/viewT.k;
+      if(Math.abs(dx)+Math.abs(dy)>3){ moved=true; const nx=Math.max(0,ox+dx),ny=Math.max(0,oy+dy);
+        node.setAttribute('transform',`translate(${nx},${ny})`); setPos(id,nx,ny); redrawEdges(); redrawAddButtons(); } });
+    node.addEventListener('pointerup',e=>{ down=false; node.style.cursor='grab';
+      if(!moved){ selectNode(id); } });
+    node.addEventListener('dblclick',()=>{ const m=findModule(id); if(m&&CONTAINERS.includes(m.type)) drillInto(m); });
+  });
+  attachAddButtons();
+}
+// boutons « + » → ouvrent la palette d'insertion au bon endroit
+function attachAddButtons(){
+  const g=$('#flow_view'); if(!g)return;
+  g.querySelectorAll('.addbtn').forEach(b=>{
+    if(b._wired)return; b._wired=true;
+    b.addEventListener('pointerdown',e=>e.stopPropagation());
+    b.addEventListener('click',e=>{ e.stopPropagation(); openInsertPalette(parseInt(b.getAttribute('at')||b.getAttribute('data-at')||'0'),e); });
+  });
+}
+// — Pan (glisser le fond vide) + zoom (molette) — transform CSS uniquement —
+function attachPanZoom(){
+  const wrap=$('#flow_canvas'); if(!wrap||wrap._pz)return; wrap._pz=true;
+  let panning=false,sx,sy,ox,oy;
+  wrap.addEventListener('pointerdown',e=>{ if(e.target.closest('.flnode')||e.target.closest('.addbtn'))return;
+    panning=true; sx=e.clientX; sy=e.clientY; ox=viewT.x; oy=viewT.y; wrap.classList.add('panning'); wrap.setPointerCapture(e.pointerId); });
+  wrap.addEventListener('pointermove',e=>{ if(!panning)return; viewT.x=ox+(e.clientX-sx); viewT.y=oy+(e.clientY-sy); applyViewTransform(); });
+  wrap.addEventListener('pointerup',()=>{ panning=false; wrap.classList.remove('panning'); });
+  wrap.addEventListener('pointercancel',()=>{ panning=false; wrap.classList.remove('panning'); });
+  wrap.addEventListener('wheel',e=>{ e.preventDefault(); const r=wrap.getBoundingClientRect();
+    setZoom(viewT.k*(e.deltaY<0?1.1:0.9), e.clientX-r.left, e.clientY-r.top); },{passive:false});
+}
+// — palette popover d'insertion d'étape (réutilise addModule) —
+let _insertAt=null;
+function openInsertPalette(at,evt){
+  closeInsertPalette(); _insertAt=at;
+  const wrap=$('#flow_canvas'); if(!wrap)return; const r=wrap.getBoundingClientRect();
+  const types=['agent','tool','code','note','forloop','whileloop','branchone','branchall'];
+  if(!flowPath.length) types.push('approval');
+  const items=types.map(t=>{ const meta=TYPE_META[t];
+    return `<div class="pop-item" onclick="insertModuleAt('${t}')"><span class="pop-ic" style="background:${meta.color}">${meta.icon}</span><span>${esc(meta.label)}</span></div>`;
+  }).join('');
+  const bd=document.createElement('div'); bd.className='flow-pop-backdrop'; bd.id='flow_pop_bd'; bd.onclick=closeInsertPalette;
+  const pop=document.createElement('div'); pop.className='flow-pop'; pop.id='flow_pop';
+  pop.innerHTML=`<div class="pop-title">Ajouter une étape</div>${items}`;
+  document.body.appendChild(bd); document.body.appendChild(pop);
+  // positionne près du clic, en restant dans la fenêtre
+  let x=(evt&&evt.clientX!=null)?evt.clientX+8:r.left+r.width/2;
+  let y=(evt&&evt.clientY!=null)?evt.clientY+8:r.top+80;
+  pop.style.left=Math.min(x,window.innerWidth-pop.offsetWidth-12)+'px';
+  pop.style.top=Math.min(y,window.innerHeight-pop.offsetHeight-12)+'px';
+}
+function closeInsertPalette(){ const p=$('#flow_pop'),b=$('#flow_pop_bd'); if(p)p.remove(); if(b)b.remove(); }
+function insertModuleAt(t){ const at=_insertAt; closeInsertPalette(); addModule(t,at); }
 
 // — palette / manipulation —
 function newName(t){ return (TYPE_META[t]?TYPE_META[t].label:t)+' '+(levelModules().length+1); }
-function addModule(t){
+function addModule(t,at){
   const id=Math.random().toString(36).slice(2,10);
   const m={id,summary:newName(t),type:t,retry:{attempts:0,delay_s:2,mode:'constant'},timeout_s:0,cache_ttl:0,
     mock:{enabled:false,value:''},stop_after_if:{enabled:false,expr:''},skip_if:{enabled:false,expr:''},sleep_s:0,continue_on_error:false};
@@ -1361,8 +1539,12 @@ function addModule(t){
   else if(t==='branchone')Object.assign(m,{branches:[{summary:'branche 1',expr:'',modules:[]}],default_modules:[]});
   else if(t==='branchall')Object.assign(m,{branches:[{summary:'branche 1',modules:[]}],parallel:false});
   else if(t==='approval')Object.assign(m,{message:'Validation requise pour continuer.',approvers:[]});
-  const mods=levelModules(); const last=mods[mods.length-1]; const lp=last?nodePos(last,mods.length-1):{x:40,y:-56};
-  setPos(id,lp.x,lp.y+86); mods.push(m); selNode=id; renderFlow();
+  const mods=levelModules();
+  const pos=(at==null||at>mods.length)?mods.length:Math.max(0,at);
+  // position : juste sous l'étape précédente (ou en haut à gauche par défaut)
+  const ref=pos>0?mods[pos-1]:null; const rp=ref?nodePos(ref,pos-1):{x:40,y:-56};
+  setPos(id,rp.x,rp.y+86);
+  mods.splice(pos,0,m); selNode=id; renderFlow();
 }
 function drillInto(m){ let bi;
   if(m.type==='branchone') bi=(m.branches&&m.branches.length)?0:'default';
@@ -1379,6 +1561,7 @@ function renderInspector(){ const el=$('#flow_inspector'); if(el)el.innerHTML=in
 // — assistant d'insertion de références (façon « plug » Windmill) —
 let _lastField=null;
 document.addEventListener('focusin',e=>{ const t=e.target; if(t&&(t.classList.contains('tmpl')||t.classList.contains('pycode')))_lastField=t; });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeInsertPalette(); });
 function _tok(kind,key){ const py=_lastField&&_lastField.classList.contains('pycode');
   if(key===''||key==null) return py?kind:`{{ ${kind} }}`;
   const safe=/^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
@@ -1406,9 +1589,13 @@ function refsHTML(m){
 function inspectorHTML(){
   const m=findModule(selNode);
   if(!m) return `<div class="sm muted" style="border:1px dashed var(--line);border-radius:10px;padding:14px">Clique une étape pour l'éditer, ou ajoute-en une via la palette. Double-clic sur une boucle/branche pour entrer dedans.</div>`;
-  const meta=TYPE_META[m.type],idx=levelModules().indexOf(m);
+  const meta=nodeMeta(m),idx=levelModules().indexOf(m);
+  const badgeIc=meta.icon.length>2
+    ? `<span style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:${meta.color}">${esc(meta.icon)}</span>`
+    : `<span style="font-size:15px">${meta.icon}</span>`;
   return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:#f9fafb">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:16px">${meta.icon}</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,${meta.color} 16%,transparent);flex:none">${badgeIc}</span>
       <input value="${esc(m.summary||'')}" onchange="mEdit('summary',this.value)" style="flex:1;font-weight:600" placeholder="nom de l'étape"></div>
     <div class="sm muted" style="margin-bottom:8px">${esc(meta.label)} · réf <code>results.${esc(m.id)}</code></div>
     ${typeFields(m)}
@@ -1438,10 +1625,10 @@ function typeFields(m){
       <input onchange="mEdit('tool',this.value)" value="${esc(m.tool||'')}" placeholder="nom de l'outil" style="margin-top:6px;width:100%">
       <textarea rows="3" class="tmpl" onchange="mEditJSON('args',this.value)" placeholder='args JSON — {"q":"{{ flow_input.x }}"}' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.args||{},null,1))}</textarea>`; }
   if(m.type==='code'){ const L=m.language||'python';
-    return `<select onchange="mEdit('language',this.value)" style="${SELST};margin-bottom:6px;max-width:200px">
-        <option value="python" ${L==='python'?'selected':''}>Python</option>
-        <option value="javascript" ${L==='javascript'?'selected':''}>JavaScript</option>
-        <option value="typescript" ${L==='typescript'?'selected':''}>TypeScript</option>
+    return `<select onchange="mEditLang(this.value)" style="${SELST};margin-bottom:6px;max-width:200px">
+        <option value="python" ${L==='python'?'selected':''}>🐍 Python</option>
+        <option value="javascript" ${L==='javascript'?'selected':''}>🟨 JavaScript</option>
+        <option value="typescript" ${L==='typescript'?'selected':''}>🔷 TypeScript</option>
       </select>
       <textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
       <div class="sm muted" style="margin-top:3px">Définis <code>result</code> (ou une fonction <code>main()</code>). Dispo : <code>flow_input</code>, <code>results</code>, <code>item</code>, <code>index</code>, <code>input_dir</code>, <code>output_dir</code>. Sous-processus isolé (réseau coupé, FS lecture seule).</div>`; }
@@ -1497,6 +1684,8 @@ function advancedFields(m){
 function mResultHTML(m){ if(!(m.id in lastResults))return ''; let v=lastResults[m.id]; v=typeof v==='string'?v:JSON.stringify(v,null,1);
   return `<div style="margin-top:8px"><div class="sm muted">Dernière sortie :</div><pre class="sm" style="background:#ffffff;border:1px solid var(--line);border-radius:6px;padding:6px;max-height:140px;overflow:auto;white-space:pre-wrap">${esc(String(v).slice(0,800))}</pre></div>`; }
 function mEdit(k,v){ const m=findModule(selNode); if(m)m[k]=v; }
+// change le langage du code : met à jour le nœud du canvas (icône/sous-titre) + l'en-tête de l'inspecteur, sans tout re-render
+function mEditLang(v){ const m=findModule(selNode); if(!m)return; m.language=v; renderCanvas(); selectNode(selNode); }
 function mEditNum(k,v){ const m=findModule(selNode); if(m)m[k]=parseFloat(v)||0; }
 function mEditP(o,k,v){ const m=findModule(selNode); if(m){m[o]=m[o]||{}; m[o][k]=v;} }
 function mToggle(o,k,v){ mEditP(o,k,v); renderInspector(); }
