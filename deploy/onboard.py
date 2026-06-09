@@ -128,6 +128,9 @@ def build_config(a: dict):
         "ELYTRAS_SECTOR": sector,
         "ELYTRAS_SITE_ADDRESS": domain or ":80",      # Caddy : domaine => HTTPS auto ; sinon HTTP local
         "ELYTRAS_OAUTH_BIND": "0.0.0.0",              # conteneur ; port publié seulement en 127.0.0.1
+        # URL PUBLIQUE de l'instance — sert aux callbacks OAuth (MCP, SSO), aux liens
+        # d'approbation et aux webhooks de flows. Sans elle, tout pointerait sur localhost.
+        "PUBLIC_BASE_URL": (f"https://{domain}" if domain else "http://localhost"),
     }
     profiles: list[str] = []
 

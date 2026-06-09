@@ -83,13 +83,49 @@ docker compose down               # arrêt
 docker compose up -d --build      # mise à jour après un changement de code
 ```
 
-**Sauvegarde** (essentiel) : le volume **`elytras_data`** contient l'état **et la clé de
-chiffrement** `.elytras-key`. Sans cette clé, les secrets sont irrécupérables. Sauvegarde le
-volume régulièrement :
+## Sauvegardes (chiffrées, testées)
+
+Le volume **`elytras_data`** contient l'état **et la clé de chiffrement** `.elytras-key` :
+sans sauvegarde, une panne disque = tout perdu. `backup.sh` archive **tout** (volumes
+`elytras_data` + `gateway_data`, `.env`, `selection.json`, `company-context.md`), chiffre
+(AES-256, PBKDF2), **auto-vérifie** l'archive, fait la rotation et pousse hors-site.
 
 ```bash
-docker run --rm -v elytras_elytras_data:/d -v "$PWD":/b alpine tar czf /b/elytras-backup.tgz -C /d .
+# deploy/.env :
+#   BACKUP_PASSPHRASE=une-phrase-forte     # à garder AUSSI hors du serveur !
+#   BACKUP_REMOTE=monremote:bucket/elytras # rclone, ou user@hote:/chemin (scp) — recommandé
+./backup.sh                   # sauvegarde maintenant
+./backup.sh --install-cron    # sauvegarde quotidienne (3h07)
+./backup.sh --verify backups/elytras-backup-….tar.gz.enc   # contrôle d'une archive
 ```
+
+**Restauration** (testée automatiquement : `tests/test_backup_restore.py`) :
+
+```bash
+./restore.sh backups/elytras-backup-….tar.gz.enc   # restaure volumes + config, relance tout
+```
+
+⚠️ La phrase `BACKUP_PASSPHRASE` est indispensable à la restauration : note-la dans un
+gestionnaire de mots de passe, pas seulement sur le serveur.
+
+## Vérification HTTPS (banc e2e derrière TLS)
+
+`smoke/run-https.sh` rejoue le parcours complet **derrière un proxy TLS** (rôle de Caddy,
+certificat auto-signé) : auth par jeton à travers le proxy, flows, chat via la passerelle,
+et URLs générées (webhooks/approbations) bien en `https://…` grâce à `PUBLIC_BASE_URL`
+(défini automatiquement par l'onboarding quand un domaine est fourni).
+
+```bash
+./smoke/run-https.sh    # → RESULTAT: TOUT PASSE
+```
+
+### Checklist avant le 1er client (à faire sur le vrai serveur)
+
+1. `./install.sh` avec un **domaine** → vérifier le certificat Let's Encrypt (cadenas).
+2. Connecter un **MCP OAuth réel** depuis l'interface → le callback doit revenir sur `https://<domaine>/oauth/callback`.
+3. `BACKUP_PASSPHRASE` + `BACKUP_REMOTE` dans `.env` → `./backup.sh --install-cron`.
+4. **Exercice de restauration** : `./restore.sh` de la veille sur une VM vierge → se connecter, tout est là.
+5. `curl https://<domaine>/health` → `sandbox.active=true`, puis `ELYTRAS_CODE_SANDBOX=on`.
 
 ## Sécurité
 

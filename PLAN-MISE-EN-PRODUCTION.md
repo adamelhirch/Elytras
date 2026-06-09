@@ -169,11 +169,11 @@ Chaque module = un connecteur MCP + une mise en place (installation + configurat
 
 ## 10. Backlog produit avant le 1er client payant
 
-**P0 — bloquant**
-- Passerelle IA centrale : proxy (→ OpenRouter) + metering + quotas + plafond + base de facturation.
-- Déploiement Linux : Docker + Caddy TLS + restart auto + supervision.
-- Sauvegardes auto (état + clé) chiffrées hors‑site + **restauration testée**.
-- Vérifier le fonctionnement derrière proxy HTTPS (sessions, URL publique, OAuth MCP).
+**P0 — bloquant** *(✅ terminé le 9 juin 2026)*
+- ✅ Passerelle IA centrale : proxy (→ OpenRouter) + metering + quotas + plafond + base de facturation (`gateway/`).
+- ✅ Déploiement Linux : Docker + Caddy TLS + restart auto + supervision (`deploy/install.sh`).
+- ✅ Sauvegardes auto (état + clé) chiffrées hors‑site + **restauration testée** (`deploy/backup.sh` / `restore.sh` + `tests/test_backup_restore.py`).
+- ✅ Fonctionnement derrière proxy HTTPS : banc e2e TLS (`deploy/smoke/run-https.sh`), `PUBLIC_BASE_URL` câblé par l'onboarding (bug corrigé : OAuth/webhooks pointaient localhost). Reste la **checklist sur vrai serveur** (deploy/README.md) lors du déploiement Vanille Désire.
 
 **P1 — avant de scaler**
 - **WhatsApp vocal** (compte Business + Whisper + dispatch).
