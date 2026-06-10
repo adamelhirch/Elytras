@@ -288,6 +288,10 @@
       <div id="roles_admin"></div>
     </div>
     <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">
+      <div class="sm muted" style="margin-bottom:6px">Policies — la « sandbox » des agents, par rôle : quels agents ce rôle peut piloter, avec quels connecteurs MCP, skills et familles d'outils, quelle mémoire, et quelle autonomie. Sans policy, un rôle est sans restriction (les capacités ci-dessus restent toujours la limite haute).</div>
+      <div id="policies_admin"></div>
+    </div>
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:10px">
       <div class="sm muted" style="margin-bottom:6px">Contexte de l'entreprise (onboarding) — injecté en lecture seule dans tous les agents ; les chats ne peuvent pas le modifier.</div>
       <textarea id="company_md" rows="6" placeholder="# Vanille Désire&#10;Activité, ton, produits, règles internes, contacts clés… Ce texte donne le contexte de l'entreprise à tous les agents." style="width:100%;font-family:ui-monospace,monospace;font-size:12px"></textarea>
       <button class="ghost sm" style="padding:5px 10px;margin-top:5px" onclick="saveCompany()">Enregistrer le contexte</button>
@@ -758,6 +762,7 @@ async function loadAdmin(){
   const rd=await jget('/admin/roles'); window._roles=rd.roles||[]; window._capsAll=rd.caps||[]; window._capLabels=rd.cap_labels||{};
   const rsel=$('#team_role'); if(rsel) rsel.innerHTML=window._roles.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
   if($('#roles_admin')) $('#roles_admin').innerHTML=rolesAdminHTML();
+  try{ window._pol=await jget('/admin/policies'); if($('#policies_admin')) $('#policies_admin').innerHTML=policiesAdminHTML(); }catch(e){}
   try{ const co=await jget('/company'); if($('#company_md')) $('#company_md').value=co.md||''; }catch(e){}
   const teams=(await jget('/admin/teams')).teams||[]; window._teams=teams;
   $('#teams_list').innerHTML=teams.map(t=>`<div class="row"><span class="dot ok"></span><b style="font-weight:500">${esc(t.name)}</b> <span class="pill">${esc(t.role)}</span> <a href="#" style="color:#dc2626" onclick="delTeam('${t.id}');return false">suppr</a></div>`).join('')||'<span class="muted">Aucune équipe.</span>';
@@ -805,6 +810,65 @@ async function createRole(){
   const name=$('#new_role_name').value.trim(); if(!name){banner('Nom requis.','ko');return}
   const caps=[...document.querySelectorAll('.rc_new:checked')].map(x=>x.value);
   await jpost('/admin/roles',{name,caps}); banner('Rôle créé.','ok'); loadAdmin();
+}
+/* ── Policies par rôle (sandbox des agents) ── */
+const POL_FAMS=[['code','Exécuter du code'],['web','Naviguer le web'],['flows','Workflows'],
+                ['files','Fichiers'],['dispatch','Notifier (dispatch)'],['delegate','Délégation entre agents']];
+const POL_MEML={user:'perso',project:'projet'};
+function _polList(rid,field,items,sel){ // sel: null = tout permis ; sinon liste d'ids
+  const all=sel===null||sel===undefined;
+  const boxes=items.map(it=>`<label class="sm" style="display:inline-block;min-width:170px;margin-right:6px">
+      <input type="checkbox" class="pol_${rid}_${field}" value="${esc(it.id)}" ${all||(sel||[]).includes(String(it.id))?'checked':''} ${all?'disabled':''}> ${esc(it.name)}</label>`).join('');
+  return `<label class="sm" style="font-weight:500;margin-right:10px"><input type="checkbox" class="pol_${rid}_${field}_all" ${all?'checked':''}
+      onchange="document.querySelectorAll('.pol_${rid}_${field}').forEach(c=>{c.disabled=this.checked;if(this.checked)c.checked=true})"> tout permis</label>${boxes||'<span class="muted sm">aucun disponible</span>'}`;
+}
+function policiesAdminHTML(){
+  const pd=window._pol||{}; const pols=pd.policies||{};
+  const ags=(pd.agents||[]).map(a=>({id:a.id,name:a.name}));
+  const mcps=(pd.mcp_servers||[]).map(s=>({id:s.id,name:s.name}));
+  const sks=(pd.skills||[]).map(s=>({id:s,name:s}));
+  return (pd.roles||[]).filter(r=>!r.protected).map(r=>{
+    const p=pols[r.id]; const has=!!p; const v=(f,d)=>has?(p[f]!==undefined?p[f]:d):d;
+    const fams=POL_FAMS.map(([f,lab])=>`<label class="sm" style="display:inline-block;min-width:170px">
+        <input type="checkbox" class="pol_${r.id}_fam" value="${f}" ${v(f,true)?'checked':''}> ${lab}</label>`).join('');
+    const mems=(pd.memory_scopes||[]).map(s=>({id:s,name:POL_MEML[s]||s}));
+    const auto=v('autonomy',null)||'agent';
+    return `<div style="border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px">
+      <b>${esc(r.name)}</b> <span class="pill">${esc(r.id)}</span> ${has?'<span class="pill" style="color:#b45309">policy active</span>':'<span class="pill">sans restriction</span>'}
+      <div style="margin-top:5px">${fams}</div>
+      <div class="sm" style="margin-top:5px">Autonomie des agents :
+        <select class="pol_${r.id}_auto" style="background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:4px;font-size:12px">
+          <option value="agent" ${auto==='agent'?'selected':''}>réglage de chaque agent (défaut)</option>
+          <option value="ask" ${auto==='ask'?'selected':''}>forcer la validation humaine (ask)</option>
+          <option value="auto" ${auto==='auto'?'selected':''}>imposer l'autonomie (auto)</option>
+        </select></div>
+      <div class="sm" style="margin-top:5px">Mémoire : ${_polList(r.id,'mem',mems,v('memory_scopes',null))}</div>
+      <div class="sm" style="margin-top:5px">Agents : ${_polList(r.id,'ag',ags,v('agents',null))}</div>
+      <div class="sm" style="margin-top:5px">Connecteurs MCP : ${_polList(r.id,'mcp',mcps,v('mcp',null))}</div>
+      <div class="sm" style="margin-top:5px">Skills : ${_polList(r.id,'sk',sks,v('skills',null))}</div>
+      <div style="margin-top:6px"><button class="ghost sm" style="padding:4px 9px" onclick="savePolicy('${r.id}')">Enregistrer la policy</button>
+      ${has?` <a href="#" style="color:#dc2626;margin-left:8px" onclick="resetPolicy('${r.id}');return false">réinitialiser (sans restriction)</a>`:''}</div>
+    </div>`;
+  }).join('')||'<span class="muted sm">Crée d\'abord un rôle (non protégé).</span>';
+}
+function _polCollect(rid,field){
+  const all=document.querySelector(`.pol_${rid}_${field}_all`);
+  if(all&&all.checked) return null;                      // null = tout permis
+  return [...document.querySelectorAll(`.pol_${rid}_${field}:checked`)].map(x=>x.value);
+}
+async function savePolicy(rid){
+  const body={clear:[]};
+  POL_FAMS.forEach(([f])=>{body[f]=document.querySelector(`.pol_${rid}_fam[value="${f}"]`).checked});
+  const a=document.querySelector(`.pol_${rid}_auto`).value; body.autonomy=a;
+  [['mem','memory_scopes'],['ag','agents'],['mcp','mcp'],['sk','skills']].forEach(([cls,f])=>{
+    const v=_polCollect(rid,cls); if(v===null)body.clear.push(f); else body[f]=v;
+  });
+  const d=await jpatch('/admin/policies/'+rid,body); if(d.error){banner(d.error,'ko');return}
+  banner('Policy enregistrée.','ok'); loadAdmin();
+}
+async function resetPolicy(rid){
+  if(!confirm('Supprimer la policy de ce rôle (retour à « sans restriction ») ?'))return;
+  await jdel('/admin/policies/'+rid); banner('Policy réinitialisée.','ok'); loadAdmin();
 }
 async function saveCompany(){ await jpost('/admin/company',{md:$('#company_md').value}); banner('Contexte entreprise enregistré.','ok'); }
 async function createTeam(){const n=$('#team_name').value.trim();if(!n){banner('Nom requis.','ko');return}await jpost('/admin/teams',{name:n,role:$('#team_role').value});$('#team_name').value='';loadAdmin();banner('Équipe créée.','ok');}

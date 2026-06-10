@@ -101,8 +101,8 @@ en gardant l'isolement (un agent mandaté par X ne lit jamais le privé de Y). C
 
 ## 4. Feuille de route proposée (incrémentale, testée à chaque étape)
 
-1. **Couche Policy unifiée** (écran admin + moteur) : centralise caps + outils par agent + accès
-   MCP/skill + autonomie. *(le plus structurant, faible risque — tout existe, on relie)*
+1. ✅ **Couche Policy unifiée** (écran admin + moteur) : centralise caps + outils par agent + accès
+   MCP/skill + autonomie. *(fait le 10/06 — `policy.py`, `/admin/policies`, écran admin, 10 tests)*
 2. **Mémoire équipe + organisation** : nouveaux scopes + sélection par étape agent + RBAC dessus.
 3. **OpenFlow compat** : import/export du JSON OpenFlow (interop + Hub Windmill).
 4. **`input_transforms` structurés** + **prop-picker** (piper proprement sortie d'étape → entrée).

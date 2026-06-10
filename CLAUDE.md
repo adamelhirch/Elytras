@@ -61,4 +61,5 @@ curl -s http://$IP/health    # attendu: {"status":"ok", ..., "sandbox":{"active"
 
 | Date | Intervention |
 |---|---|
+| 2026-06-10 | **Couche Policy unifiée** (point 1 du doc archi) : `policy.py` étendu (policies par rôle, union entre rôles, défaut permissif), enforcement sur le chemin agent (`_agent_setup`, MCP/skills/delegate/chat/Telegram, clamps mémoire + autonomie), endpoints `/admin/policies`, écran admin, 10 tests (`test_policies.py`). Échecs préexistants hors-sujet : `test_code_multilang` (node hors PATH non-interactif) et `test_files_extract` (modules extraction absents du venv) — environnementaux, vérifiés identiques sur la baseline. |
 | 2026-06-09 | P0 prod bouclé : `backup.sh`/`restore.sh` chiffrés + testés, banc e2e HTTPS (`run-https.sh`), fix `PUBLIC_BASE_URL` manquant à l'onboarding. Push `08412a9`, VM `garage-martin` mise à jour + rebuild, fix `$` dans `ELYTRAS_COMPANY`. |

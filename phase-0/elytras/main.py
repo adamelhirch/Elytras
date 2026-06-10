@@ -35,7 +35,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import (agents, crypto, filestore, files, flows, memory_engine, provider_auth, providers,
+from . import (agents, crypto, filestore, files, flows, memory_engine, policy, provider_auth, providers,
                rbac, registry, scheduler, sessions, skills)
 from .mcp_client import McpClient
 from .mcp_oauth import McpOAuth
@@ -298,6 +298,55 @@ def admin_role_del(rid: str, actor: str = Depends(_need("admin"))):
     if not rbac.delete_role(rid):
         return JSONResponse({"error": "suppression impossible : rôle de base ou encore utilisé par une équipe"}, status_code=400)
     return {"deleted": rid}
+
+
+# ── Policies par rôle (sandbox des agents) : un seul écran pour composer les droits ──
+class _PolicyPatchReq(BaseModel):
+    agents: list[str] | None = None          # None = tous les agents ; [] = aucun
+    mcp: list[str] | None = None             # ids de serveurs MCP permis aux agents
+    skills: list[str] | None = None
+    memory_scopes: list[str] | None = None   # parmi: user, project
+    code: bool | None = None
+    web: bool | None = None
+    flows: bool | None = None
+    files: bool | None = None
+    dispatch: bool | None = None
+    delegate: bool | None = None
+    autonomy: str | None = None              # agent (défaut) | ask (forcer validation) | auto
+    clear: list[str] | None = None           # champs liste à repasser à « tout permis » (None)
+
+
+@app.get("/admin/policies")
+def admin_policies(actor: str = Depends(_need("admin"))):
+    """Tout ce qu'il faut pour l'écran : policies stockées + briques disponibles."""
+    c = _conn_opt()
+    servers = [{"id": s["id"], "name": s["name"]} for s in registry.list_servers(c)]
+    if c:
+        c.close()
+    return {"policies": policy.list_policies(),
+            "roles": rbac.list_roles(),
+            "agents": [{"id": a["id"], "name": a["name"]} for a in agents.list_agents()],
+            "mcp_servers": servers,
+            "skills": [s["name"] for s in skills.load_skills()],
+            "memory_scopes": list(policy.MEMORY_SCOPES)}
+
+
+@app.patch("/admin/policies/{role_id}")
+def admin_policy_set(role_id: str, req: _PolicyPatchReq, actor: str = Depends(_need("admin"))):
+    patch = req.model_dump(exclude_none=True)
+    for f in (req.clear or []):              # « tout permis » explicite sur un champ liste
+        if f in policy.LIST_FIELDS:
+            patch[f] = None
+    patch.pop("clear", None)
+    p = policy.set_policy(role_id, patch)
+    if p is None:
+        return JSONResponse({"error": "rôle introuvable ou protégé (l'admin n'est pas bridable)"}, status_code=400)
+    return {"role_id": role_id, "policy": p}
+
+
+@app.delete("/admin/policies/{role_id}")
+def admin_policy_del(role_id: str, actor: str = Depends(_need("admin"))):
+    return {"deleted": policy.delete_policy(role_id)}
 
 
 @app.get("/admin/teams")
@@ -770,8 +819,11 @@ def _gather_mcp_tools(user_id: str):
     servers = registry.list_servers(c)
     if c:
         c.close()
+    pol_mcp = policy.allowed_servers(user_id)       # policy du rôle : périmètre MCP des agents
     for srv in servers:
         if not _can_use_server(user_id, srv):       # accès par équipe : ne pas exposer les outils interdits
+            continue
+        if pol_mcp is not None and str(srv["id"]) not in pol_mcp:
             continue
         try:
             for t in mcp.list_tools(_with_token(srv, user_id)):
@@ -895,17 +947,24 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
 
     _caps = set(rbac.caps_for(user_id))
     _atools = agent.get("tools") if isinstance(agent.get("tools"), dict) else {}
+    _pol = policy.effective(user_id)                    # policy du rôle : la sandbox de l'agent
 
-    def _af(fam):                                       # cette famille d'outils est-elle permise à CET agent ?
-        return _atools.get(fam, True) is not False
+    def _af(fam):       # famille permise = périmètre de l'AGENT **et** policy du RÔLE de l'utilisateur
+        if _atools.get(fam, True) is False:
+            return False
+        return bool(_pol.get(fam, True)) if fam in policy.BOOL_FIELDS else True
     for fam, fcaps in (("flows", {"flow.create", "flow.edit", "flow.run"}),
                        ("files", {"file.read", "file.write"}),
                        ("web", {"web.browse"}), ("dispatch", {"dispatch"})):
         if not _af(fam):
-            _caps -= fcaps                              # périmètre de l'agent : on retire ces outils
+            _caps -= fcaps                              # périmètre agent/policy : on retire ces outils
+    if not _pol.get("code", True):
+        _caps.discard("code.execute")                   # policy : pas d'exécution de code via l'agent
     _can_act = bool(_caps - {"flow.view", "memory.view", "agent.use"})   # a-t-il des droits d'action ?
     tools, mapping = _gather_mcp_tools(user_id) if _af("mcp") else ([], {})
-    sk = ([s for s in skills.load_skills() if _can_use_skill(user_id, s["name"])] if _af("skills") else [])
+    _pol_sk = None if _pol["skills"] is None else set(_pol["skills"])
+    sk = ([s for s in skills.load_skills() if _can_use_skill(user_id, s["name"])
+           and (_pol_sk is None or s["name"] in _pol_sk)] if _af("skills") else [])
     if sk:
         instr += ("\n\nSavoir-faire (skills) — appelle use_skill(name) pour la procédure détaillée :\n"
                   + "\n".join(f"- {s['name']} : {s['description']}" for s in sk))
@@ -914,7 +973,8 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
                           "parameters": {"type": "object", "properties": {"name": {"type": "string"}},
                                          "required": ["name"]}}]
     if depth == 0 and _can_act and _af("delegate") and agent.get("can_delegate", True) is not False:
-        specialists = [a["name"] for a in agents.list_agents() if a["id"] != "orchestrateur"]
+        specialists = [a["name"] for a in agents.list_agents()
+                       if a["id"] != "orchestrateur" and policy.agent_allowed(user_id, a["id"])]
         if specialists:
             instr += "\n\nTu peux déléguer à un agent spécialisé : " + ", ".join(specialists) + " (via delegate)."
             tools = tools + [{"type": "function", "name": "delegate",
@@ -1010,7 +1070,9 @@ def _dispatch_call(name, args, agent, meta, used, mapping):
                                                      meta["parent_id"], meta["depth"])
     mscope, mowner = meta["mscope"], meta["mowner"]
     if name == "use_skill":
-        if not _can_use_skill(user_id, args.get("name", "")):
+        _psk = policy.allowed_skills(user_id)
+        if not _can_use_skill(user_id, args.get("name", "")) \
+                or (_psk is not None and args.get("name", "") not in _psk):
             return {"error": "accès refusé à cette skill"}
         body = skills.read_skill(args.get("name", ""))
         used.append("skill:" + str(args.get("name")))
@@ -1021,6 +1083,8 @@ def _dispatch_call(name, args, agent, meta, used, mapping):
         sub = agents.get_agent(args.get("agent", ""))
         if not sub:
             return {"error": "agent inconnu"}
+        if not policy.agent_allowed(user_id, sub["id"]):
+            return {"error": "non autorisé : cet agent est hors du périmètre (policy) de votre rôle"}
         did = _audit("delegate", agent=sub["name"], detail=(args.get("task", "") or "")[:200], user_id=user_id,
                      project_id=mproj, session_id=session_id, parent_id=parent_id, initiator=agent["name"])
         sub_ans, _su = run_agent(sub, [{"role": "user", "content": args.get("task", "")}],
@@ -1164,6 +1228,8 @@ def _chat_finalize(finalize, answer):
         sessions.update_session(finalize["user_id"], sid, messages=msgs, title=title)
 
     def _bg():
+        if not finalize.get("mscope"):               # scope mémoire refusé par la policy : ne rien retenir
+            return
         try:
             ex = _agent_provider()
             memory_engine.remember(finalize["mscope"], finalize["mowner"], finalize["mproj"],
@@ -1237,6 +1303,7 @@ def _msgs_to_items(messages):
 
 def run_agent(agent, messages, mscope, mowner, mproj, user_id, session_id, depth=0, parent_id=None):
     """Exécution NON interactive (délégation, flow, planif) : autonomie AUTO, jamais de pause."""
+    mscope = policy.clamp_memory(user_id, mscope)        # policy : scopes mémoire permis au rôle
     instr, tools, mapping = _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth)
     meta = {"mscope": mscope, "mowner": mowner, "mproj": mproj, "user_id": user_id,
             "session_id": session_id, "parent_id": parent_id, "depth": depth}
@@ -1245,11 +1312,18 @@ def run_agent(agent, messages, mscope, mowner, mproj, user_id, session_id, depth
 
 
 def run_agent_chat(agent, messages, mscope, mowner, mproj, user_id, session_id, parent_id=None, finalize=None):
-    """Exécution INTERACTIVE (chat) : autonomie de l'agent (ASK = pause sur action sensible)."""
+    """Exécution INTERACTIVE (chat) : autonomie de l'agent (ASK = pause sur action sensible),
+    bornée par la policy du rôle (ask forcé / auto imposé / réglage de l'agent)."""
+    if not policy.agent_allowed(user_id, agent["id"]):   # défense en profondeur (web ET Telegram)
+        return {"done": True, "used": [],
+                "answer": "⛔ Cet agent n'est pas autorisé par la policy de votre rôle."}
+    mscope = policy.clamp_memory(user_id, mscope)        # policy : scopes mémoire permis au rôle
+    if finalize:
+        finalize = {**finalize, "mscope": mscope}        # la mémorisation suit le scope borné
     instr, tools, mapping = _agent_setup(agent, messages, mscope, mowner, mproj, user_id, 0)
     meta = {"mscope": mscope, "mowner": mowner, "mproj": mproj, "user_id": user_id,
             "session_id": session_id, "parent_id": parent_id, "depth": 0}
-    autonomy = (agent.get("autonomy") or "ask").lower()
+    autonomy = policy.clamp_autonomy(user_id, (agent.get("autonomy") or "ask").lower())
     return _agent_loop(agent, instr, tools, mapping, _msgs_to_items(messages), meta, [], autonomy, finalize)
 
 
@@ -2502,6 +2576,8 @@ def chat(req: ChatReq, actor: str = Depends(_need("agent.use"))):
         mscope, mowner, mproj = "user", req.user_id, None
     last_user = next((m["content"] for m in reversed(req.messages) if m.get("role") == "user"), "")
     agent = agents.get_agent(req.agent_id or "orchestrateur") or agents.get_agent("orchestrateur")
+    if not policy.agent_allowed(req.user_id, agent["id"]):
+        return JSONResponse({"error": "agent non autorisé par la policy de votre rôle"}, status_code=403)
     root = _audit("chat", agent=agent["name"], detail=last_user[:200], user_id=req.user_id,
                   project_id=mproj, session_id=req.session_id, initiator=f"user:{req.user_id}")
     finalize = {"messages": req.messages, "session_id": req.session_id, "user_id": req.user_id,
