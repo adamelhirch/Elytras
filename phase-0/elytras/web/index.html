@@ -2180,19 +2180,26 @@ function renderTriggers(){
       <div class="tcard-head">
         <span class="tcard-ic">⚡</span>
         <div><h3>Webhook</h3><div class="tdesc">Un POST JSON depuis n'importe quel service exécute le flow.</div></div>
-        <span class="sp"></span><span class="badge ${wh?'on':'off'}">${wh?'actif':'à générer'}</span>
+        <span class="sp"></span><span class="badge ${wh?'on':'off'}" id="wh_badge">${wh?'actif':'aucun'}</span>
       </div>
+      <div class="fhelp" style="font-weight:600;color:var(--txt)">Webhooks de ce flow</div>
+      <div id="trig_wh_rows" class="frow tight"><span class="fhelp">chargement…</span></div>
+      <div class="frow tight" style="grid-template-columns:1fr auto;align-items:end">
+        <div class="field"><label>Ajouter un webhook (nom du service)</label>
+          <input id="wh_label" placeholder="ex : Shopify — commande créée" onkeydown="if(event.key==='Enter')addNamedWebhook()"></div>
+        <button class="ghost sm" onclick="addNamedWebhook()" style="height:35px">+ Ajouter</button>
+      </div>
+      <div class="tsep"></div>
       ${wh
-        ?`<div class="copybox"><code>${esc(wh)}</code><button class="ghost sm" onclick="copyWebhook()">⧉ Copier</button></div>
-          <div class="tfoot">Le corps JSON de la requête devient <code>flow_input</code>. Garde cette URL secrète — quiconque la connaît peut lancer le flow.</div>
-          <details><summary>🔗 Brancher un service externe (Shopify, Stripe, GitHub…)</summary>
-            <div class="dbody"><div class="fhelp">Colle cette URL dans la config « webhook » du service :
-              <b>Shopify</b> → Paramètres › Notifications › Webhooks (ex : « Commande créée ») ·
-              <b>Stripe</b> → Développeurs › Webhooks ·
-              <b>GitHub</b> → Settings › Webhooks. Chaque événement reçu lance ce flow avec le payload du service en <code>flow_input</code>.
-              Pour un chemin stable et une méthode précise, utilise plutôt une <b>route HTTP</b> ci-contre.</div></div></details>`
-        :`<div><button onclick="genWebhook()">Générer l'URL webhook</button></div>
-          <div class="tfoot">Une URL à jeton unique sera créée — à coller dans Shopify, Stripe, GitHub… ou à appeler depuis tes propres services.</div>`}
+        ?`<div class="fhelp" style="font-weight:600;color:var(--txt)">URL générique du flow</div>
+          <div class="copybox"><code>${esc(wh)}</code><button class="ghost sm" onclick="copyWebhook()">⧉ Copier</button></div>`
+        :`<div><button class="ghost sm" onclick="genWebhook()">Générer aussi une URL générique</button></div>`}
+      <details><summary>🔗 Brancher un service externe (Shopify, Stripe, GitHub…)</summary>
+        <div class="dbody"><div class="fhelp">Ajoute un webhook nommé ci-dessus, copie son URL et colle-la dans le service :
+          <b>Shopify</b> → Paramètres › Notifications › Webhooks (ex : « Commande créée ») ·
+          <b>Stripe</b> → Développeurs › Webhooks ·
+          <b>GitHub</b> → Settings › Webhooks. Chaque événement reçu lance ce flow avec le payload du service en <code>flow_input</code>.
+          Garde ces URL secrètes — quiconque les connaît peut lancer le flow.</div></div></details>
     </div>
 
     <div class="tcard">
@@ -2414,10 +2421,29 @@ async function loadFlowTriggers(){
     if(t.kind==='http') return `<div class="trow"><span class="method-chip">${esc(c.method||'POST')}</span><code>/r/${esc(c.route_path||'')}</code><span class="sp"></span>${sw}${del}</div>`;
     if(t.kind==='email') return `<div class="trow"><span style="flex:none">📥</span><code>${esc(c.user||'')}</code><span class="fhelp" style="flex:none">@ ${esc(c.host||'')} · ${esc(String(c.poll_s||120))}s</span><span class="sp"></span>${sw}${del}</div>`;
     return `<div class="trow"><span class="pill" style="flex:none">${esc(t.kind)}</span><span class="fhelp">${t.active===false?'inactif — broker/runtime requis':''}</span><span class="sp"></span>${sw}${del}</div>`;};
-  if(httpEl){ const hs=ts.filter(t=>t.kind==='http'), others=ts.filter(t=>!['http','email'].includes(t.kind));
+  if(httpEl){ const hs=ts.filter(t=>t.kind==='http'), others=ts.filter(t=>!['http','email','webhook'].includes(t.kind));
     httpEl.innerHTML=(hs.map(row).join('')+others.map(row).join(''))||'<span class="fhelp">Aucune route pour ce flow.</span>'; }
   if(emEl){ const es2=ts.filter(t=>t.kind==='email');
     emEl.innerHTML=es2.map(row).join('')||'<span class="fhelp">Aucune boîte dédiée connectée à ce flow.</span>'; }
+  const whEl=$('#trig_wh_rows');
+  if(whEl){ const ws=ts.filter(t=>t.kind==='webhook');
+    whEl.innerHTML=ws.map(t=>{ const c=t.config||{}; const url=location.origin+'/hooks/'+(c.token||'');
+      return `<div class="trow"><span style="flex:none">⚡</span>
+        <span class="pname" style="font-weight:600;flex:none;max-width:38%;overflow:hidden;text-overflow:ellipsis">${esc(c.label||'webhook')}</span>
+        <code class="fhelp" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(url)}</code>
+        <button class="ghost sm" style="flex:none;padding:4px 9px" onclick="copyText('${esc(url)}')">⧉</button>
+        <label class="switch" title="${t.enabled?'désactiver':'activer'}"><input type="checkbox" ${t.enabled?'checked':''} onchange="toggleTrigger('${t.id}',this.checked)"><i></i></label>
+        <a href="#" class="x" onclick="delTrigger('${t.id}');return false" title="supprimer">×</a></div>`;
+    }).join('')||'<span class="fhelp">Aucun webhook — ajoute-en un par service ci-dessous.</span>';
+    const badge=$('#wh_badge');
+    if(badge&&ws.length){ badge.className='badge on'; badge.textContent=ws.length+' actif'+(ws.length>1?'s':''); }
+  }
+}
+async function addNamedWebhook(){
+  const label=$('#wh_label').value.trim(); if(!label){banner('Donne un nom à ce webhook (ex : Shopify — commande créée).','ko');return}
+  const d=await jpost('/triggers',{kind:'webhook',target:{flow_id:currentFlow.id},config:{label}});
+  if(d.error){banner(d.error,'ko');return}
+  $('#wh_label').value=''; banner('Webhook créé — copie son URL dans le service externe.','ok'); loadFlowTriggers();
 }
 async function toggleTrigger(id,en){ const d=await jpatch('/triggers/'+id,{enabled:en}); if(d.error)banner(d.error,'ko'); else banner(en?'Déclencheur activé.':'Déclencheur désactivé.','ok'); }
 async function addHttpTrigger(){

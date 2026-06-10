@@ -21,6 +21,7 @@ import email as email_mod
 import email.header
 import email.utils
 import imaplib
+import secrets
 import time
 import uuid
 
@@ -46,6 +47,9 @@ def create(kind: str, target: dict, config: dict | None = None, owner_id: str = 
         raise ValueError(f"kind inconnu : {kind} (connus : {', '.join(DECLARED_KINDS)})")
     tid = str(uuid.uuid4())
     cfg = dict(config or {})
+    if kind == "webhook":                          # webhook nommé : URL dédiée /hooks/<token>
+        cfg.setdefault("label", "")
+        cfg["token"] = cfg.get("token") or secrets.token_urlsafe(16)
     if kind == "email" and cfg.get("password"):
         cfg["password_enc"] = _enc(cfg.pop("password"))
     if kind == "http":
@@ -94,6 +98,17 @@ def list_triggers(flow_id: str | None = None) -> list[dict]:
                     "enabled": t.get("enabled"), "active": t.get("active"),
                     "note": t.get("note"), "config": cfg})
     return out
+
+
+def find_webhook(token: str) -> dict | None:
+    """Webhook nommé actif portant ce jeton (URL /hooks/<token>)."""
+    if not token:
+        return None
+    for tid, t in filestore.items(SECTION).items():
+        if t.get("kind") == "webhook" and t.get("enabled") \
+                and (t.get("config") or {}).get("token") == token:
+            return {"id": tid, **t}
+    return None
 
 
 def find_http_route(method: str, path: str) -> dict | None:

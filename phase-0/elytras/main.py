@@ -3374,6 +3374,20 @@ def _route_shared_email(token, payload):
         run_flow(f, payload, f.get("owner_id"), triggered_by="email")
 
 
+@app.post("/hooks/{token}")
+async def named_webhook(token: str, request: Request):
+    """Webhook nommé (ajouté dans l'onglet Déclencheurs) : un service externe POST ici."""
+    t = triggers.find_webhook(token)
+    if not t:
+        return JSONResponse({"error": "webhook inconnu ou désactivé"}, status_code=404)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    payload = {**dict(request.query_params), **(body if isinstance(body, dict) else {"body": body})}
+    return _run_trigger_target(t, payload, "webhook")
+
+
 def _email_trigger_loop():
     """Scrute la boîte partagée (adresse par flow) + les boîtes IMAP par trigger."""
     while True:
