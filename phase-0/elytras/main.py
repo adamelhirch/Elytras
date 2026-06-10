@@ -913,12 +913,44 @@ def _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth):
     """Construit (instr système, tools, mapping) pour un agent — identique en run direct et reprise."""
     base_instr = agent.get("instructions") or "Tu es un assistant d'Elytras. Réponds clairement et de façon concise."
     last_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
-    mem = memory_engine.recall(mscope, mowner, mproj, query=last_user, k=12)
+    # Rappel multi-scopes : scope principal (perso/projet) + équipes de l'utilisateur + entreprise,
+    # le tout borné par la policy du rôle. Isolement : jamais le perso d'un autre utilisateur.
+    _mem_ok = policy.effective(user_id)["memory_scopes"]
+
+    def _ms_ok(s):
+        return _mem_ok is None or s in _mem_ok
+    specs = []
+    if mscope not in (None, "none"):                 # « aucune mémoire » : on n'enrichit pas non plus
+        if mscope == "user":
+            specs.append(("user", mowner, None))
+        elif mscope == "project":
+            specs.append(("project", None, mproj))
+        elif mscope == "team":
+            specs.append(("team", mowner, None))     # convention : owner = id d'équipe
+        elif mscope == "org":
+            specs.append(("org", None, None))
+        if _ms_ok("team"):
+            specs += [("team", tid, None) for tid in rbac.user_team_ids(user_id)
+                      if ("team", tid, None) not in specs]
+        if _ms_ok("org") and ("org", None, None) not in specs:
+            specs.append(("org", None, None))
+    mem = memory_engine.recall_many(specs, query=last_user, k=12)
     if mem:
-        label = "ce projet (partagé entre ses membres)" if mscope == "project" else "ton espace personnel"
-        instr = ("Tu DISPOSES d'une mémoire persistante de " + label + ". Appuie-toi sur ces faits ; "
+        bits = []
+        if mscope == "project":
+            bits.append("du projet (partagée entre ses membres)")
+        elif mscope == "user":
+            bits.append("personnelle")
+        if any(m.get("scope") == "team" for m in mem):
+            bits.append("de ton/tes équipe(s)")
+        if any(m.get("scope") in ("org", "global") for m in mem):
+            bits.append("de l'entreprise")
+        _SLBL = {"user": "perso", "project": "projet", "team": "équipe", "org": "entreprise", "global": "entreprise"}
+        label = " + ".join(bits) or "persistante"
+        instr = ("Tu DISPOSES d'une mémoire persistante " + label + ". Appuie-toi sur ces faits ; "
                  "ne dis JAMAIS que tu n'as pas de mémoire et n'invente rien.\nFaits mémorisés :\n"
-                 + "\n".join("- " + m["content"] for m in mem) + "\n\n" + base_instr)
+                 + "\n".join(f"- [{_SLBL.get(m.get('scope'), m.get('scope'))}] " + m["content"] for m in mem)
+                 + "\n\n" + base_instr)
     else:
         instr = base_instr
 
@@ -1842,6 +1874,11 @@ def _dispatch_leaf(m, ns, meta):
             a_scope, a_owner, a_proj = "user", (meta.get("mowner") or meta["user_id"]), None
         elif mem == "projet":
             a_scope, a_owner, a_proj = "project", None, meta.get("mproj")
+        elif mem == "equipe":                                 # 1re équipe du lanceur (perso d'autrui : jamais)
+            _tids = rbac.user_team_ids(meta["user_id"])
+            a_scope, a_owner, a_proj = ("team", _tids[0], None) if _tids else ("none", None, None)
+        elif mem == "org":
+            a_scope, a_owner, a_proj = "org", None, None      # mémoire d'entreprise (partagée à tous)
         elif mem == "none":
             a_scope, a_owner, a_proj = "none", None, None     # aucune mémoire rappelée
         else:
@@ -2980,13 +3017,44 @@ def set_company(req: CompanyReq, actor: str = Depends(_need("admin"))):
 @app.get("/memory")
 def memory(q: str = "", user_id: str = DEFAULT_USER, tenant_id: str = DEFAULT_TENANT):
     pids = [p["id"] for p in sessions.list_projects(user_id)]
-    items = memory_engine.list_for_user(user_id, pids, k=300)
+    items = memory_engine.list_for_user(user_id, pids, team_ids=rbac.user_team_ids(user_id), k=300)
     if q:
         ql = q.lower()
         items = [it for it in items if ql in (it.get("content", "").lower())]
+    teams = {t["id"]: t["name"] for t in rbac.list_teams()}
     return {"available": True, "mode": "fichier",
             "items": [{"id": it["id"], "content": it["content"], "source": it.get("source", ""),
-                       "scope": it.get("scope")} for it in items[:60]]}
+                       "scope": it.get("scope"), "team": teams.get(it.get("team_id") or "")}
+                      for it in items[:60]]}
+
+
+class _MemFactReq(BaseModel):
+    content: str
+    scope: str = "user"                # user | team | org
+    team_id: str | None = None
+    user_id: str = DEFAULT_USER
+
+
+@app.post("/memory/fact")
+def add_memory_fact(req: _MemFactReq, request: Request, actor: str = Depends(_need("memory.view"))):
+    """Ajout EXPLICITE d'un fait. perso : soi-même ; équipe : ses équipes (admin : toutes) ; org : admin."""
+    content = (req.content or "").strip()
+    if not content:
+        return JSONResponse({"error": "contenu vide"}, status_code=400)
+    if req.scope == "org":
+        if not rbac.is_admin(actor):
+            return JSONResponse({"error": "mémoire d'entreprise : admin requis"}, status_code=403)
+        mid = memory_engine.add_fact("org", None, None, content, source_ref=f"manuel:{actor}")
+    elif req.scope == "team":
+        tid = req.team_id or ""
+        if not rbac.is_admin(actor) and tid not in rbac.user_team_ids(actor):
+            return JSONResponse({"error": "mémoire d'équipe : réservée aux membres (ou admin)"}, status_code=403)
+        if not tid:
+            return JSONResponse({"error": "team_id requis"}, status_code=400)
+        mid = memory_engine.add_fact("team", tid, None, content, source_ref=f"manuel:{actor}")
+    else:
+        mid = memory_engine.add_fact("user", actor, None, content, source_ref=f"manuel:{actor}")
+    return {"id": mid, "scope": req.scope}
 
 
 # ───────────────────────── Projets / Sessions ─────────────────────────
@@ -3454,6 +3522,14 @@ def delete_memory(mid: str, user_id: str = DEFAULT_USER, actor: str = Depends(_n
         finally:
             c.close()
         return {"deleted": mid}
+    e = filestore.items("memory").get(mid) or {}
+    st = e.get("scope_type")
+    if st in ("org", "global") and not rbac.is_admin(actor):           # partagé à tous : admin
+        return JSONResponse({"error": "mémoire d'entreprise : admin requis"}, status_code=403)
+    if st == "team" and not (rbac.is_admin(actor) or e.get("team_id") in rbac.user_team_ids(actor)):
+        return JSONResponse({"error": "mémoire d'équipe : réservée aux membres (ou admin)"}, status_code=403)
+    if st == "user" and e.get("owner_id") != actor and not rbac.is_admin(actor):
+        return JSONResponse({"error": "mémoire perso d'un autre utilisateur"}, status_code=403)
     return {"deleted": filestore.delete("memory", mid)}
 
 

@@ -562,6 +562,9 @@
     <div class="tool" style="gap:8px"><input id="m_q" placeholder="rechercher dans la mémoire…">
       <button class="ghost" onclick="searchMem()">Chercher</button>
       <button class="ghost" style="color:#dc2626;border-color:#fecaca" onclick="resetMem()">Réinitialiser</button></div>
+    <div class="tool" style="gap:8px;margin-top:8px"><input id="m_new" placeholder="ajouter un fait durable…">
+      <select id="m_new_scope" style="background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px"><option value="user">perso</option></select>
+      <button class="ghost" onclick="addMemFact()">+ Mémoriser</button></div>
     <div id="memory" class="sm" style="margin-top:10px"><span class="muted">—</span></div>
   </section>
 
@@ -814,7 +817,7 @@ async function createRole(){
 /* ── Policies par rôle (sandbox des agents) ── */
 const POL_FAMS=[['code','Exécuter du code'],['web','Naviguer le web'],['flows','Workflows'],
                 ['files','Fichiers'],['dispatch','Notifier (dispatch)'],['delegate','Délégation entre agents']];
-const POL_MEML={user:'perso',project:'projet'};
+const POL_MEML={user:'perso',project:'projet',team:'équipe',org:'entreprise'};
 function _polList(rid,field,items,sel){ // sel: null = tout permis ; sinon liste d'ids
   const all=sel===null||sel===undefined;
   const boxes=items.map(it=>`<label class="sm" style="display:inline-block;min-width:170px;margin-right:6px">
@@ -1689,6 +1692,8 @@ function typeFields(m){
           <option value="flow" ${MM==='flow'?'selected':''}>celle du flow</option>
           <option value="perso" ${MM==='perso'?'selected':''}>perso (utilisateur)</option>
           <option value="projet" ${MM==='projet'?'selected':''}>projet</option>
+          <option value="equipe" ${MM==='equipe'?'selected':''}>équipe (du lanceur)</option>
+          <option value="org" ${MM==='org'?'selected':''}>entreprise (org)</option>
           <option value="none" ${MM==='none'?'selected':''}>aucune</option>
         </select></div>`; }
   if(m.type==='tool'){ const srvs=Object.values(serversById||{}).map(sv=>`<option value="${sv.id}" ${m.server_id===sv.id?'selected':''}>${esc(sv.name)}</option>`).join('');
@@ -2042,13 +2047,31 @@ async function saveSkillAccess(i){
   banner('Accès skill mis à jour.','ok'); loadSkills();
 }
 
+const MEM_SCOPE_LBL={user:'perso',project:'projet',team:'équipe',org:'entreprise',global:'entreprise'};
 async function searchMem(){
   const d=await jget('/memory?q='+encodeURIComponent($('#m_q').value));
   if(!d.available){$('#memory').innerHTML=`<span class="muted">${esc(d.note||'')}</span>`;return}
   $('#memory').innerHTML=(d.items||[]).map(i=>`<div class="row">
-      <span>${i.level>0?'<span class="pill" style="color:#f5c451;border-color:#5a4a1a">résumé ×'+(i.children||0)+'</span> ':''}${esc(i.content)}</span>
+      <span><span class="pill">${esc(MEM_SCOPE_LBL[i.scope]||i.scope||'')}${i.team?' · '+esc(i.team):''}</span> ${i.level>0?'<span class="pill" style="color:#f5c451;border-color:#5a4a1a">résumé ×'+(i.children||0)+'</span> ':''}${esc(i.content)}</span>
       <span class="det">${esc(i.source||'')} ${i.level>0?'· <a href="#" onclick="expandMem(\''+i.id+'\');return false">déplier</a>':''} · <a href="#" style="color:#dc2626" onclick="delMem('${i.id}');return false">suppr</a></span></div>
       <div id="exp_${i.id}"></div>`).join('')||'<span class="muted">vide</span>';
+  // options d'ajout : perso toujours ; mes équipes ; entreprise si admin
+  const sel=$('#m_new_scope');
+  if(sel&&!sel.dataset.filled){
+    let opts='<option value="user">perso</option>';
+    try{ const me=await jget('/auth/me');
+      (me.teams||[]).forEach(t=>{opts+=`<option value="team:${t.id}">équipe — ${esc(t.name||'')}</option>`});
+      if(me.is_admin) opts+='<option value="org">entreprise (tous)</option>';
+    }catch(e){}
+    sel.innerHTML=opts; sel.dataset.filled='1';
+  }
+}
+async function addMemFact(){
+  const content=$('#m_new').value.trim(); if(!content){banner('Texte requis.','ko');return}
+  const v=$('#m_new_scope').value; const body={content};
+  if(v==='org')body.scope='org'; else if(v.startsWith('team:')){body.scope='team';body.team_id=v.slice(5)} else body.scope='user';
+  const d=await jpost('/memory/fact',body); if(d.error){banner(d.error,'ko');return}
+  $('#m_new').value=''; banner('Fait mémorisé.','ok'); searchMem();
 }
 async function expandMem(id){
   const d=await jget('/memory/'+encodeURIComponent(id)+'/children');

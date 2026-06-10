@@ -51,13 +51,17 @@ def _kw(q: str, text: str) -> int:
 
 
 def _scope_match(e: dict, scope, owner, project) -> bool:
+    """Scopes : user (owner=user_id) · project (project=id) · team (owner=TEAM_id) · org (toute
+    l'entreprise). Convention : pour « team », le paramètre `owner` transporte l'id d'ÉQUIPE."""
     if e.get("scope_type") != scope:
         return False
     if scope == "user":
         return e.get("owner_id") == owner
     if scope == "project":
         return e.get("project_id") == project
-    return True
+    if scope == "team":
+        return e.get("team_id") == owner
+    return True                                   # org (et legacy global) : partagé à tous
 
 
 def _items(scope, owner, project):
@@ -106,7 +110,10 @@ def add_fact(scope, owner, project, content: str, source_ref: str = "") -> str:
             if e.get("content", "").strip().lower() == content.strip().lower():
                 return mid
     mid = str(uuid.uuid4())
-    filestore.put(SECTION, mid, {"scope_type": scope, "owner_id": owner, "project_id": project,
+    filestore.put(SECTION, mid, {"scope_type": scope,
+                                 "owner_id": owner if scope != "team" else None,
+                                 "team_id": owner if scope == "team" else None,
+                                 "project_id": project,
                                  "mtype": "fact", "content": content, "embedding": emb,
                                  "source_ref": source_ref, "created_at": time.time(),
                                  "provenance": {"source": source_ref}})
@@ -205,8 +212,24 @@ def recall(scope, owner, project, query: str = "", k: int = 12) -> list[dict]:
     return chosen
 
 
-def list_for_user(user_id, member_project_ids, k: int = 200) -> list[dict]:
-    """Mémoire visible par un utilisateur : ses faits perso + ceux des projets dont il est membre + global."""
+def recall_many(specs, query: str = "", k: int = 12) -> list[dict]:
+    """Rappel AGRÉGÉ sur plusieurs scopes. specs = [(scope, owner, project), …].
+    L'isolement reste garanti par specs : on ne passe jamais le perso d'un autre."""
+    if not specs:
+        return []
+    per = max(3, k // len(specs))
+    out, seen = [], set()
+    for sc, ow, pj in specs:
+        for m in recall(sc, ow, pj, query=query, k=per):
+            if m["content"] in seen:
+                continue
+            seen.add(m["content"])
+            out.append({**m, "scope": sc})
+    return out[:k]
+
+
+def list_for_user(user_id, member_project_ids, team_ids=None, k: int = 200) -> list[dict]:
+    """Mémoire visible par un utilisateur : perso + projets dont il est membre + ses équipes + org."""
     out = []
     for mid, e in filestore.items(SECTION).items():
         if e.get("archived"):
@@ -214,8 +237,10 @@ def list_for_user(user_id, member_project_ids, k: int = 200) -> list[dict]:
         st = e.get("scope_type")
         if (st == "user" and e.get("owner_id") == user_id) \
                 or (st == "project" and e.get("project_id") in (member_project_ids or [])) \
-                or st == "global":
+                or (st == "team" and e.get("team_id") in (team_ids or [])) \
+                or st in ("org", "global"):
             out.append({"id": mid, "content": e.get("content", ""), "scope": st,
+                        "team_id": e.get("team_id"),
                         "source": e.get("source_ref", ""), "level": e.get("level", 0),
                         "children": len(e.get("child_ids", [])), "created_at": e.get("created_at", 0)})
     out.sort(key=lambda e: e.get("created_at", 0), reverse=True)

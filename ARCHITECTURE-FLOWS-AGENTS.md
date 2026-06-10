@@ -103,7 +103,9 @@ en gardant l'isolement (un agent mandaté par X ne lit jamais le privé de Y). C
 
 1. ✅ **Couche Policy unifiée** (écran admin + moteur) : centralise caps + outils par agent + accès
    MCP/skill + autonomie. *(fait le 10/06 — `policy.py`, `/admin/policies`, écran admin, 10 tests)*
-2. **Mémoire équipe + organisation** : nouveaux scopes + sélection par étape agent + RBAC dessus.
+2. ✅ **Mémoire équipe + organisation** : nouveaux scopes + sélection par étape agent + RBAC dessus.
+   *(fait le 10/06 — scopes team/org, rappel multi-scopes au chat, choix equipe/org par étape de flow,
+   clamp par policy, endpoints + UI, 10 tests `test_memory_scopes.py`)*
 3. **OpenFlow compat** : import/export du JSON OpenFlow (interop + Hub Windmill).
 4. **`input_transforms` structurés** + **prop-picker** (piper proprement sortie d'étape → entrée).
 5. **`failure_module`** de flow (gestionnaire d'erreur global, façon try/catch).

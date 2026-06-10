@@ -58,7 +58,7 @@ def decide(tool: str, autonomy_level: str) -> str:
 SECTION = "policies"                                    # filestore : role_id -> policy
 LIST_FIELDS = ("agents", "mcp", "skills", "memory_scopes")
 BOOL_FIELDS = ("code", "web", "flows", "files", "dispatch", "delegate")
-MEMORY_SCOPES = ("user", "project")                     # équipe/org : prochain chantier
+MEMORY_SCOPES = ("user", "project", "team", "org")      # vision : perso / projet / équipe / entreprise
 AUTONOMY_VALUES = (None, "agent", "ask", "auto")        # agent/None = respecter le réglage de l'agent
 
 UNRESTRICTED: dict = {**{f: None for f in LIST_FIELDS},
