@@ -96,6 +96,26 @@
   .flow-pop .pop-item:hover{background:var(--acc-weak);color:var(--acc)}
   .flow-pop .pop-ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex:none}
   .flow-pop-backdrop{position:fixed;inset:0;z-index:39}
+  /* ── Palette d'insertion unifiée (modal façon Windmill) ── */
+  .pal-bd{position:fixed;inset:0;z-index:60;background:rgba(16,24,40,.32);display:flex;align-items:flex-start;justify-content:center;padding:7vh 16px 16px}
+  .pal{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(16,24,40,.25);width:min(880px,96vw);max-height:76vh;display:flex;flex-direction:column;overflow:hidden;animation:popin .12s ease}
+  .pal-search{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
+  .pal-search input{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px}
+  .pal-body{display:flex;flex:1;min-height:0}
+  .pal-cats{width:210px;flex:none;border-right:1px solid var(--line);padding:10px 8px;overflow:auto;background:var(--panel2)}
+  .pal-cat{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txt);user-select:none}
+  .pal-cat:hover{background:#fff}
+  .pal-cat.active{background:var(--acc-weak);color:var(--acc)}
+  .pal-cat .ic{width:18px;text-align:center;flex:none}
+  .pal-list{flex:1;min-width:0;overflow:auto;padding:12px 16px}
+  .pal-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin:12px 0 6px}
+  .pal-group:first-child{margin-top:0}
+  .pal-it{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:13px}
+  .pal-it:hover{background:var(--acc-weak)}
+  .pal-it .pic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none;color:#fff}
+  .pal-it .pname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pal-it .pdesc{font-size:11.5px;color:var(--muted);margin-left:auto;text-align:right;max-width:46%;flex:none}
+  .pal-empty{color:var(--muted);font-size:13px;padding:16px 6px;line-height:1.5}
   .flow-palette{display:flex;gap:6px;flex-wrap:wrap;padding:9px 18px;border-top:1px solid var(--line);background:var(--panel);flex:none}
   .flow-side{width:340px;flex:none;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
   .flow-side-head{display:flex;align-items:center;gap:6px;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;flex:none}
@@ -111,6 +131,55 @@
   .flow-drawer[open]{overflow:auto}
   #flow_run_out{padding:0 18px 14px}
   .flow-empty{padding:40px 26px;color:var(--muted);font-size:13.5px}
+  /* ── Flows : design system (formulaires, cartes de déclencheurs, badges) ── */
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .field>label{font-size:12px;font-weight:600;color:var(--txt)}
+  .fhelp{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .frow{display:grid;gap:10px;grid-template-columns:1fr}
+  .frow.c2{grid-template-columns:1fr 1fr}
+  .frow.c3{grid-template-columns:2fr 1fr 1fr}
+  .frow.tight{gap:8px}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;align-items:start}
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(16,24,40,.04);display:flex;flex-direction:column;gap:13px;min-width:0}
+  .tcard.full{grid-column:1/-1}
+  .tcard-head{display:flex;align-items:flex-start;gap:12px}
+  .tcard-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;background:var(--acc-weak)}
+  .tcard-head h3{margin:0;font-size:14px;font-weight:700;letter-spacing:.1px}
+  .tcard-head .tdesc{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+  .tcard-head .sp{flex:1}
+  .badge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;flex:none}
+  .badge.on{color:var(--ok);background:#ecfdf3;border-color:#bce5cb}
+  .badge.off{color:var(--muted);background:var(--panel2);border-color:var(--line)}
+  .badge.warn{color:var(--warn);background:#fff7e6;border-color:#f1dcae}
+  .copybox{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 8px 7px 12px}
+  .copybox code{flex:1;font-size:12px;word-break:break-all;color:#4338ca;font-family:ui-monospace,SFMono-Regular,monospace}
+  .copybox button{flex:none}
+  button.sm{padding:6px 11px;font-size:12.5px}
+  .trow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--panel2);min-width:0}
+  .trow code{font-size:12px;word-break:break-all}
+  .trow .sp{flex:1}
+  .trow .x{color:var(--ko);font-size:15px;line-height:1;text-decoration:none;padding:2px 4px;border-radius:6px}
+  .trow .x:hover{background:#fdecec;text-decoration:none}
+  .method-chip{font-size:10.5px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;background:var(--acc-weak);color:var(--acc);font-family:ui-monospace,monospace;flex:none}
+  .switch{position:relative;width:34px;height:20px;flex:none;cursor:pointer;display:inline-block}
+  .switch input{display:none}
+  .switch i{position:absolute;inset:0;background:#d6dae1;border-radius:999px;transition:background .15s;display:block}
+  .switch i:before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+  .switch input:checked+i{background:var(--ok)}
+  .switch input:checked+i:before{left:16px}
+  .tsep{border-top:1px dashed var(--line);margin:2px 0}
+  .tfoot{font-size:11.5px;color:var(--muted);line-height:1.55}
+  .tfoot code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+  .trig-wrap{max-width:1080px;margin:0 auto;width:100%}
+  .trig-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .trig-head h2{font-size:17px;font-weight:700;margin:0}
+  .tcard details{border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+  .tcard details summary{cursor:pointer;list-style:none;padding:9px 13px;font-size:12.5px;font-weight:600;color:var(--muted);user-select:none;display:flex;align-items:center;gap:7px}
+  .tcard details summary::-webkit-details-marker{display:none}
+  .tcard details summary::before{content:'▸';transition:transform .15s;font-size:11px}
+  .tcard details[open] summary::before{transform:rotate(90deg)}
+  .tcard details .dbody{padding:4px 13px 13px;display:flex;flex-direction:column;gap:10px}
+  .flow-toolbar select{max-width:230px}
   main{max-width:1180px;margin:0 auto;padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
   .card.full{grid-column:1/-1}
@@ -455,11 +524,11 @@
         <!-- ─── Onglet ÉDITEUR ─── -->
         <div class="page-panel active" id="flowpane-editor" data-flowpane="editor">
           <div class="flow-toolbar">
-            <select id="flow_select" onchange="openFlow(this.value)" style="background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px;font-size:12.5px;max-width:220px"></select>
-            <input id="new_flow_name" placeholder="nom du nouveau flow" style="max-width:180px">
-            <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="createFlow()">+ Flow</button>
-            <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="generateFlow()" title="Décris un workflow en langage naturel, l'IA le construit">✨ Générer (IA)</button>
-    <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="importOpenflow()" title="Importer un JSON OpenFlow (Hub Windmill)">⇪ Importer OpenFlow</button>
+            <select id="flow_select" onchange="openFlow(this.value)"></select>
+            <input id="new_flow_name" placeholder="nom du nouveau flow" style="max-width:170px">
+            <button class="ghost sm" data-cap="flow.create" onclick="createFlow()">+ Flow</button>
+            <button class="ghost sm" data-cap="flow.create" onclick="generateFlow()" title="Décris un workflow en langage naturel, l'IA le construit">✨ Générer (IA)</button>
+            <button class="ghost sm" data-cap="flow.create" onclick="importOpenflow()" title="Importer un JSON OpenFlow (Hub Windmill)">⇪ Importer</button>
             <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
             <span id="flow_toolbar_actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1"></span>
           </div>
@@ -483,11 +552,7 @@
 
         <!-- ─── Onglet DÉCLENCHEURS ─── -->
         <div class="page-panel scroll" id="flowpane-triggers" data-flowpane="triggers">
-          <div style="max-width:720px">
-            <h2 class="view-title" style="font-size:16px;margin:0 0 4px">Déclencheurs du flow</h2>
-            <p class="sm muted" style="margin-top:0">Webhook et planification du flow sélectionné dans l'éditeur. Choisis d'abord un flow.</p>
-            <div id="flow_triggers"></div>
-          </div>
+          <div class="trig-wrap" id="flow_triggers"></div>
         </div>
 
       </div>
@@ -668,6 +733,7 @@ async function _j(r){ if(r.status===403){banner('Action non autorisée — droit
 async function jget(u){u+=(u.includes('?')?'&':'?')+'user_id='+encodeURIComponent(CU);return _j(await fetch(u,{headers:_hdr()}))}
 async function jpost(u,b){return _j(await fetch(u,{method:'POST',headers:_hdr({'content-type':'application/json'}),body:JSON.stringify(Object.assign({user_id:CU},b||{}))}))}
 async function jpatch(u,b){return _j(await fetch(u,{method:'PATCH',headers:_hdr({'content-type':'application/json'}),body:JSON.stringify(Object.assign({user_id:CU},b||{}))}))}
+async function jput(u,b){return _j(await fetch(u,{method:'PUT',headers:_hdr({'content-type':'application/json'}),body:JSON.stringify(Object.assign({user_id:CU},b||{}))}))}
 async function jdel(u){u+=(u.includes('?')?'&':'?')+'user_id='+encodeURIComponent(CU);return _j(await fetch(u,{method:'DELETE',headers:_hdr()}))}
 
 // ── Authentification & RBAC (UI) ──
@@ -739,11 +805,25 @@ function buildNav(){
   if(!nav._kb){ nav._kb=true; nav.addEventListener('keydown',e=>{
     if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('nav-item')){ e.preventDefault(); showSection(e.target.getAttribute('data-section')); }
   }); }
-  // restaure la dernière section si elle est encore accessible, sinon « chat »
+  // deep-link (#section[/onglet[/flow_id]]) prioritaire, sinon dernière section, sinon « chat »
+  if(applyHash())return;
   let want=null; try{ want=localStorage.getItem('elytras_section'); }catch(e){}
   if(!want || !visible.some(n=>n.name===want)) want='chat';
   showSection(want);
 }
+// — deep-linking : #workflows, #workflows/triggers, #workflows/triggers/<flow_id>… —
+function applyHash(){
+  const h=(location.hash||'').replace(/^#/,''); if(!h)return false;
+  const [sec,tab,fid]=h.split('/');
+  if(!NAV.find(n=>n.name===sec)||!navHasCap((NAV.find(n=>n.name===sec)||{}).cap))return false;
+  showSection(sec);
+  if(sec==='workflows'&&(tab||fid)) setTimeout(async()=>{
+    if(fid){ try{ await loadFlows(); await openFlow(fid); }catch(e){} }
+    if(tab) flowTab(tab);
+  },200);
+  return true;
+}
+window.addEventListener('hashchange',()=>applyHash());
 function showSection(name){
   const entry=NAV.find(n=>n.name===name);
   if(!entry || !navHasCap(entry.cap)) name='chat';
@@ -1334,8 +1414,8 @@ async function loadScriptsView(){
   const sel=$('#sc_lang');
   if(sel&&!sel.dataset.filled){
     const order=['python3','bun','deno','bash','go','php','ruby','rust','java','powershell','nu','csharp','rlang','graphql','postgresql','mysql','duckdb'];
-    sel.innerHTML=order.map(l=>{const lm=LANG_META[l]||{icon:'',label:l};
-      return `<option value="${l}">${lm.icon} ${lm.label}${(d.languages||{})[l]===false?' (toolchain absente)':''}</option>`;}).join('');
+    sel.innerHTML=order.filter(l=>(d.languages||{})[l]!==false).map(l=>{const lm=LANG_META[l]||{icon:'',label:l};
+      return `<option value="${l}">${lm.icon} ${lm.label}</option>`;}).join('');
     sel.dataset.filled='1';
   }
   const el=$('#scripts_list'); if(!el)return;
@@ -1441,7 +1521,8 @@ function ofDown(m){
     if(out.type==='http'){ out.method=out.method||'GET'; out.headers=out.headers||{}; out.timeout_s_http=out.timeout_s||15; } }
   else if(t==='script'){ out.type='script'; out.path=v.path||''; out.args=tfs; }
   else if(t==='flow'){ out.type='subflow'; out.flow=v.path||''; out.args=tfs; }
-  else if(t==='aiagent'){ out.type='agent'; out.agent_id=v.agent_id||'orchestrateur'; out.prompt=tfs.user_message||''; out.memory=v.memory||'flow'; }
+  else if(t==='aiagent'){ out.type='agent'; out.agent_id=v.agent_id||'orchestrateur'; out.prompt=tfs.user_message||''; out.memory=v.memory||'flow';
+    out.system_prompt=v.system_prompt||''; out.output_schema=v.output_schema||null; out.max_iterations=v.max_iterations||0; }
   else if(t==='mcptool'){ out.type='tool'; out.server_id=v.server_id||''; out.tool=v.tool||''; out.args=tfs; }
   else if(t==='identity'&&m.suspend){ out.type='approval'; out.message=(m.suspend||{}).message||'Validation requise pour continuer.'; }
   else if(t==='identity'&&m.mock&&m.mock.enabled){ out.type='note'; out.text=m.mock.return_value!==undefined?m.mock.return_value:(m.mock.value||''); out.mock={enabled:false,value:''}; }
@@ -1523,23 +1604,28 @@ function renderFlow(){
   if(!f){
     if(acts) acts.innerHTML='';
     const ed=$('#flow_editor');
-    if(ed) ed.innerHTML=`<div class="flow-empty">Choisis un flow dans la liste ci-dessus, ou crée-en un nouveau (✨ Générer le construit pour toi). L'éditeur canvas s'ouvre ici en plein écran.</div>`;
+    if(ed) ed.innerHTML=`<div class="flow-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;gap:6px">
+      <div style="font-size:38px">🔀</div>
+      <div style="font-weight:700;color:var(--txt);font-size:15px">Aucun flow ouvert</div>
+      <div style="max-width:380px">Choisis un flow dans la liste ci-dessus, ou crée-en un nouveau — <b>✨ Générer (IA)</b> le construit pour toi à partir d'une phrase.</div></div>`;
     return;
   }
   const mods=levelModules();
-  const palette=['agent','tool','code','script','subflow','note','http','email','sql','trigger','forloop','whileloop','branchone','branchall','identity']
-    .map(t=>`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('${t}')">+ ${TYPE_META[t].icon} ${TYPE_META[t].label}</button>`).join('');
+  const palette=`<button class="ghost sm" style="padding:6px 12px;font-weight:600" onclick="openInsertPalette(levelModules().length)">+ Ajouter une étape</button>
+    <span class="fhelp" style="align-self:center">ou clique un « + » entre deux étapes — recherche, scripts, outils MCP, boucles…</span>`;
   // — barre d'outils (haut de page) : nom + actions du flow courant —
+  const trigOn=!!(f.webhook_token||f.email_token);
   if(acts) acts.innerHTML=`
      <input value="${esc(f.name)}" onchange="currentFlow.name=this.value" class="ftname" placeholder="nom du flow">
      <button onclick="saveFlow()">💾 Enregistrer</button>
+     <button onclick="runFlowUI(false)">▶ Exécuter</button>
+     <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
      <button class="ghost sm" onclick="editFlowAI()" title="Décris une modification, l'IA l'applique">✨ Modifier (IA)</button>
      <button class="ghost sm" onclick="toggleFlowPanel('inputs')">⌨ Entrées (${(f.inputs||[]).length})</button>
-     <button class="ghost sm" onclick="flowTab('triggers')" title="Webhook, routes HTTP, email, planification">⚡ Déclencheurs</button>
+     <button class="ghost sm" onclick="flowTab('triggers')" title="Webhook, email entrant, routes HTTP, planification">⚡ Déclencheurs${trigOn?' <span class="badge on" style="margin-left:2px;padding:0 6px">●</span>':''}</button>
      <button class="ghost sm" onclick="exportOpenflow()" title="Export au format OpenFlow (Hub Windmill)">⇩ OpenFlow</button>
-     <button onclick="runFlowUI(false)">▶ Exécuter</button>
      <span class="grow"></span>
-     <a href="#" style="color:#dc2626" onclick="deleteFlow();return false">supprimer</a>`;
+     <a href="#" style="color:#dc2626;font-size:12.5px" onclick="deleteFlow();return false" title="Supprimer ce flow">🗑 supprimer</a>`;
   // — corps de l'éditeur : canvas plein écran + inspecteur + tiroir de résultats —
   $('#flow_editor').innerHTML=`
    <div class="flow-stage">
@@ -1721,26 +1807,105 @@ function attachPanZoom(){
 }
 // — palette popover d'insertion d'étape (réutilise addModule) —
 let _insertAt=null;
+// ── Palette d'insertion unifiée (modal recherche + catégories, façon Windmill) ──
+let _palCat='action', _palQ='', _palTools={};
+const PAL_CATS=[
+ {id:'action',ic:'⌁',label:'Action'},
+ {id:'agent',ic:'🤖',label:'Agent IA'},
+ {id:'trigger',ic:'📡',label:'Trigger'},
+ {id:'approval',ic:'✋',label:'Approbation'},
+ {id:'subflow',ic:'🧩',label:'Sous-flow'},
+ {id:'forloop',ic:'🔁',label:'Boucle for'},
+ {id:'whileloop',ic:'♾️',label:'Boucle while'},
+ {id:'branchone',ic:'🔀',label:'Branche (one)'},
+ {id:'branchall',ic:'🔀',label:'Branches (all)'},
+ {id:'note',ic:'📝',label:'Note'}];
+const PAL_DESC={agent:"Confie l'étape à un agent (outils MCP, mémoire, sortie JSON structurée)",
+ trigger:'Script de polling avec déduplication — stoppe le flow si rien de neuf',
+ approval:'Suspend le flow jusqu\'à validation humaine',
+ subflow:'Appelle un autre flow et renvoie son résultat',
+ forloop:'Répète des étapes sur une liste (séquentiel ou parallèle)',
+ whileloop:'Répète tant qu\'une condition est vraie',
+ branchone:'Exécute la première branche dont la condition est vraie',
+ branchall:'Exécute toutes les branches (option parallèle)',
+ note:'Annotation libre sur le canvas'};
 function openInsertPalette(at,evt){
-  closeInsertPalette(); _insertAt=at;
-  const wrap=$('#flow_canvas'); if(!wrap)return; const r=wrap.getBoundingClientRect();
-  const types=['agent','tool','code','note','http','email','sql','trigger','forloop','whileloop','branchone','branchall'];
-  if(!flowPath.length) types.push('approval');
-  const items=types.map(t=>{ const meta=TYPE_META[t];
-    return `<div class="pop-item" onclick="insertModuleAt('${t}')"><span class="pop-ic" style="background:${meta.color}">${meta.icon}</span><span>${esc(meta.label)}</span></div>`;
-  }).join('');
-  const bd=document.createElement('div'); bd.className='flow-pop-backdrop'; bd.id='flow_pop_bd'; bd.onclick=closeInsertPalette;
-  const pop=document.createElement('div'); pop.className='flow-pop'; pop.id='flow_pop';
-  pop.innerHTML=`<div class="pop-title">Ajouter une étape</div>${items}`;
-  document.body.appendChild(bd); document.body.appendChild(pop);
-  // positionne près du clic, en restant dans la fenêtre
-  let x=(evt&&evt.clientX!=null)?evt.clientX+8:r.left+r.width/2;
-  let y=(evt&&evt.clientY!=null)?evt.clientY+8:r.top+80;
-  pop.style.left=Math.min(x,window.innerWidth-pop.offsetWidth-12)+'px';
-  pop.style.top=Math.min(y,window.innerHeight-pop.offsetHeight-12)+'px';
+  closeInsertPalette(); _insertAt=at; _palCat='action'; _palQ='';
+  const bd=document.createElement('div'); bd.className='pal-bd'; bd.id='flow_pop_bd';
+  bd.addEventListener('click',e=>{ if(e.target===bd) closeInsertPalette(); });
+  bd.innerHTML=`<div class="pal" id="flow_pop">
+    <div class="pal-search"><input id="pal_q" placeholder="Rechercher une action, un script, un outil MCP… " oninput="palQ(this.value)"></div>
+    <div class="pal-body">
+      <div class="pal-cats" id="pal_cats"></div>
+      <div class="pal-list" id="pal_list"></div>
+    </div></div>`;
+  document.body.appendChild(bd);
+  renderPal(); setTimeout(()=>{const q=$('#pal_q'); if(q)q.focus();},30);
+}
+function palQ(v){ _palQ=(v||'').toLowerCase(); renderPal(); }
+function palCat(c){ _palCat=c; _palQ=''; const q=$('#pal_q'); if(q)q.value=''; renderPal(); }
+function renderPal(){
+  const cats=$('#pal_cats'), list=$('#pal_list'); if(!cats||!list)return;
+  cats.innerHTML=PAL_CATS.filter(c=>!(c.id==='approval'&&flowPath.length))
+    .map(c=>`<div class="pal-cat ${_palCat===c.id&&!_palQ?'active':''}" onclick="palCat('${c.id}')"><span class="ic">${c.ic}</span>${c.label}</div>`).join('');
+  list.innerHTML=palListHTML();
+}
+function palListHTML(){
+  const q=_palQ, match=s=>!q||String(s||'').toLowerCase().includes(q);
+  const it=(oc,icon,color,name,desc)=>`<div class="pal-it" onclick="${oc}"><span class="pic" style="background:${color}">${icon}</span><span class="pname">${esc(name)}</span>${desc?`<span class="pdesc">${esc(desc)}</span>`:''}</div>`;
+  const groups=[];
+  const showActions=q||_palCat==='action';
+  if(showActions){
+    const pre=[['http','Requête HTTP / webhook sortant','Appelle une API ou un webhook externe (Shopify, Slack…)'],
+               ['email','Envoyer un email','Via le serveur SMTP configuré'],
+               ['sql','Requête SQL','PostgreSQL, MySQL, DuckDB…']]
+      .filter(([t,n,d])=>match(n)||match(d)||match(t));
+    if(pre.length)groups.push(`<div class="pal-group">Pré-construits</div>`+
+      pre.map(([t,n,d])=>it(`insertModuleAt('${t}')`,TYPE_META[t].icon,TYPE_META[t].color,n,d)).join(''));
+    const sc=(window._scripts2||[]).filter(x=>match(x.summary)||match(x.path));
+    if(sc.length)groups.push(`<div class="pal-group">Scripts du workspace</div>`+
+      sc.map(x=>it(`insertScriptAt('${esc(x.path)}')`,'📜','#2ea043',x.summary||x.path,(LANG_META[x.language]||{}).label||x.language||'')).join(''));
+    const av=window._langs||{};
+    const ord=['python3','bun','deno','bash','go','php','ruby','rust','java','powershell','nu','csharp','rlang','graphql','postgresql','mysql','duckdb'];
+    const ls=ord.filter(l=>av[l]&&LANG_META[l]&&(match('nouveau script')||match(LANG_META[l].label)));
+    if(ls.length)groups.push(`<div class="pal-group">Nouveau script (toolchains installées)</div>`+
+      ls.map(l=>it(`insertCodeAt('${l}')`,LANG_META[l].icon,'#2ea043','Nouveau script '+LANG_META[l].label,'code en ligne')).join(''));
+    const srvs=Object.values(serversById||{});
+    let mcpH='';
+    srvs.forEach(sv=>{
+      const tools=_palTools[sv.id];
+      if(tools===undefined){ if(match(sv.name)) mcpH+=it(`palLoadTools('${sv.id}')`,'🔌','#3a7afe',sv.name,'voir les outils ▸'); }
+      else mcpH+=tools.filter(t=>match(t.name)||match(sv.name)).map(t=>it(`insertToolAt('${sv.id}','${esc(t.name)}')`,'🔌','#3a7afe',t.name,sv.name)).join('');
+    });
+    if(mcpH)groups.push(`<div class="pal-group">Intégrations (outils MCP)</div>`+mcpH);
+  }
+  if(q){
+    const sH=Object.entries(PAL_DESC).filter(([t,d])=>match(TYPE_META[t].label)||match(d))
+      .map(([t,d])=>it(`insertModuleAt('${t}')`,TYPE_META[t].icon,TYPE_META[t].color,TYPE_META[t].label,d)).join('');
+    if(sH)groups.push(`<div class="pal-group">Étapes</div>`+sH);
+  } else if(_palCat!=='action'){
+    const t=_palCat;
+    groups.push(`<div class="pal-group">${esc(TYPE_META[t].label)}</div>`+
+      it(`insertModuleAt('${t}')`,TYPE_META[t].icon,TYPE_META[t].color,'Insérer : '+TYPE_META[t].label,PAL_DESC[t]||''));
+    if(t==='trigger')groups.push(`<div class="pal-empty">💡 Webhook entrant, adresse email du flow, routes HTTP et planification se configurent dans l'onglet <b>Déclencheurs</b>.</div>`);
+    if(t==='agent')groups.push(`<div class="pal-empty">💡 L'inspecteur de l'étape permet : instructions système, schéma JSON de sortie, itérations max et choix de mémoire.</div>`);
+  }
+  return groups.join('')||`<div class="pal-empty">Rien ne correspond${q?` à « ${esc(q)} »`:''}.</div>`;
+}
+async function palLoadTools(sid){
+  _palTools[sid]=[];
+  try{ const d=await jget('/mcp/tools?server='+encodeURIComponent(sid));
+    _palTools[sid]=(d.tools||[]).map(t=>({name:(t&&t.name)||String(t)})); }catch(e){}
+  renderPal();
 }
 function closeInsertPalette(){ const p=$('#flow_pop'),b=$('#flow_pop_bd'); if(p)p.remove(); if(b)b.remove(); }
 function insertModuleAt(t){ const at=_insertAt; closeInsertPalette(); addModule(t,at); }
+function insertScriptAt(path){ const at=_insertAt; closeInsertPalette(); addModule('script',at);
+  const m=findModule(selNode); if(m){ m.path=path; const sc=(window._scripts2||[]).find(x=>x.path===path); if(sc&&sc.summary)m.summary=sc.summary; } renderFlow(); }
+function insertCodeAt(lang){ const at=_insertAt; closeInsertPalette(); addModule('code',at);
+  const m=findModule(selNode); if(m){ m.language=({python3:'python',bun:'javascript',deno:'typescript'})[lang]||lang; } renderFlow(); }
+function insertToolAt(sid,tool){ const at=_insertAt; closeInsertPalette(); addModule('tool',at);
+  const m=findModule(selNode); if(m){ m.server_id=sid; m.tool=tool; m.summary=tool; } renderFlow(); }
 
 // — palette / manipulation —
 function newName(t){ return (TYPE_META[t]?TYPE_META[t].label:t)+' '+(levelModules().length+1); }
@@ -1837,17 +2002,29 @@ function inspectorHTML(){
 }
 function typeFields(m){
   if(m.type==='agent'){ const ags=(window._agents||[]).map(a=>`<option value="${a.id}" ${m.agent_id===a.id?'selected':''}>${esc(a.name)}</option>`).join(''); const MM=m.memory||'flow';
-    return `<select onchange="mEdit('agent_id',this.value)" style="${SELST};width:100%">${ags}</select>
-      <textarea rows="4" class="tmpl" onchange="mEdit('prompt',this.value)" placeholder="prompt — réf {{ flow_input.x }}, {{ results.id }}" style="margin-top:6px;width:100%">${esc(m.prompt||'')}</textarea>
-      <div class="sm muted" style="margin-top:6px">Mémoire de l'étape :
-        <select onchange="mEdit('memory',this.value)" style="${SELST}">
-          <option value="flow" ${MM==='flow'?'selected':''}>celle du flow</option>
-          <option value="perso" ${MM==='perso'?'selected':''}>perso (utilisateur)</option>
-          <option value="projet" ${MM==='projet'?'selected':''}>projet</option>
-          <option value="equipe" ${MM==='equipe'?'selected':''}>équipe (du lanceur)</option>
-          <option value="org" ${MM==='org'?'selected':''}>entreprise (org)</option>
-          <option value="none" ${MM==='none'?'selected':''}>aucune</option>
-        </select></div>`; }
+    const schemaTxt=m.output_schema?JSON.stringify(m.output_schema,null,1):'';
+    return `<div class="field"><label>Agent</label><select onchange="mEdit('agent_id',this.value)" style="${SELST};width:100%">${ags}</select></div>
+      <div class="field" style="margin-top:8px"><label>Message (user_message)</label>
+        <textarea rows="4" class="tmpl" onchange="mEdit('prompt',this.value)" placeholder="prompt — réf {{ flow_input.x }}, {{ results.id }}" style="width:100%">${esc(m.prompt||'')}</textarea></div>
+      <div class="field" style="margin-top:8px"><label>Instructions système (optionnel)</label>
+        <textarea rows="3" class="tmpl" onchange="mEdit('system_prompt',this.value)" placeholder="ex : Tu es un assistant qui répond en une phrase, ton professionnel…" style="width:100%">${esc(m.system_prompt||'')}</textarea>
+        <span class="fhelp">Ajoutées aux instructions de l'agent pour cette étape uniquement.</span></div>
+      <div class="field" style="margin-top:8px"><label>Schéma de sortie JSON (optionnel)</label>
+        <textarea rows="4" onchange="mEditJSON('output_schema',this.value)" spellcheck="false" placeholder='{"type":"object","properties":{"prix":{"type":"number"}}}' style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(schemaTxt)}</textarea>
+        <span class="fhelp">Si défini, l'agent répond en JSON conforme — le résultat devient un objet utilisable : <code>{{ results.${esc(m.id)}.champ }}</code>.</span></div>
+      <div class="frow c2 tight" style="margin-top:8px">
+        <div class="field"><label>Itérations max (outils)</label>
+          <input type="number" min="1" max="64" value="${m.max_iterations||8}" onchange="mEdit('max_iterations',parseInt(this.value)||8)"></div>
+        <div class="field"><label>Mémoire de l'étape</label>
+          <select onchange="mEdit('memory',this.value)" style="${SELST}">
+            <option value="flow" ${MM==='flow'?'selected':''}>celle du flow</option>
+            <option value="perso" ${MM==='perso'?'selected':''}>perso (utilisateur)</option>
+            <option value="projet" ${MM==='projet'?'selected':''}>projet</option>
+            <option value="equipe" ${MM==='equipe'?'selected':''}>équipe (du lanceur)</option>
+            <option value="org" ${MM==='org'?'selected':''}>entreprise (org)</option>
+            <option value="none" ${MM==='none'?'selected':''}>aucune</option>
+          </select></div>
+      </div>`; }
   if(m.type==='tool'){ const srvs=Object.values(serversById||{}).map(sv=>`<option value="${sv.id}" ${m.server_id===sv.id?'selected':''}>${esc(sv.name)}</option>`).join('');
     return `<select onchange="mEdit('server_id',this.value)" style="${SELST};width:100%"><option value="">— serveur MCP —</option>${srvs}</select>
       <input onchange="mEdit('tool',this.value)" value="${esc(m.tool||'')}" placeholder="nom de l'outil" style="margin-top:6px;width:100%">
@@ -1855,7 +2032,8 @@ function typeFields(m){
   if(m.type==='code'){ const L=m.language||'python'; const av=window._langs||{};
     const order=['python','javascript','typescript','bash','go','php','ruby','rust','java','powershell','nu','csharp','rlang','graphql','postgresql','mysql','duckdb'];
     const keyOf=l=>({python:'python3',javascript:'bun',typescript:'deno'}[l]||l);
-    const opts=order.map(l=>{const lm=LANG_META[l]||{icon:'',label:l}; const ok=av[keyOf(l)];
+    // n'offre que les toolchains réellement installées (le langage courant reste listé)
+    const opts=order.filter(l=>av[keyOf(l)]!==false||l===L).map(l=>{const lm=LANG_META[l]||{icon:'',label:l}; const ok=av[keyOf(l)];
       return `<option value="${l}" ${L===l?'selected':''}>${lm.icon} ${lm.label}${ok===false?' (toolchain absente)':''}</option>`;}).join('');
     return `<select onchange="mEditLang(this.value)" style="${SELST};margin-bottom:6px;max-width:240px">${opts}</select>
       <textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
@@ -1985,62 +2163,104 @@ function inDel(i){ currentFlow.inputs.splice(i,1); renderFlow(); }
 // — onglet « Déclencheurs » : webhook + planification du flow courant —
 function renderTriggers(){
   const el=$('#flow_triggers'); if(!el)return;
-  if(!currentFlow){ el.innerHTML=`<div class="flow-empty" style="padding:24px 0">Aucun flow sélectionné. Ouvre un flow dans l'onglet <b>Éditeur</b> pour configurer ses déclencheurs.</div>`; return; }
+  if(!currentFlow){ el.innerHTML=`<div class="flow-empty" style="padding:40px 0;text-align:center">
+      <div style="font-size:34px;margin-bottom:10px">⚡</div>
+      <div style="font-weight:700;color:var(--txt);font-size:15px;margin-bottom:4px">Aucun flow sélectionné</div>
+      Ouvre un flow dans l'onglet <b>Éditeur</b> pour configurer ses déclencheurs.</div>`; return; }
   const wh=currentFlow.webhook_token?(location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token):null;
-  el.innerHTML=`<div class="panel" style="padding:16px;margin-bottom:14px">
-      <b>⚡ Webhook</b> <span class="pill">${esc(currentFlow.name)}</span>
-      <div style="margin-top:8px">
-        ${wh?`<code class="sm" style="word-break:break-all">${esc(wh)}</code> <button class="ghost sm" style="margin-left:6px" onclick="copyWebhook()">copier</button>`:`<button class="ghost sm" onclick="genWebhook()">générer une URL webhook</button>`}
+  el.innerHTML=`
+  <div class="trig-head">
+    <h2>Déclencheurs</h2><span class="pill">${esc(currentFlow.name)}</span>
+    <span style="flex:1"></span>
+    <span class="fhelp">Chaque déclencheur lance ce flow avec son payload en <code>flow_input</code>.</span>
+  </div>
+  <div class="tgrid">
+
+    <div class="tcard">
+      <div class="tcard-head">
+        <span class="tcard-ic">⚡</span>
+        <div><h3>Webhook</h3><div class="tdesc">Un POST JSON depuis n'importe quel service exécute le flow.</div></div>
+        <span class="sp"></span><span class="badge ${wh?'on':'off'}">${wh?'actif':'à générer'}</span>
       </div>
-      <div class="sm muted" style="margin-top:6px">POST JSON sur cette URL → exécute le flow (le corps JSON devient <code>flow_input</code>).</div>
+      ${wh
+        ?`<div class="copybox"><code>${esc(wh)}</code><button class="ghost sm" onclick="copyWebhook()">⧉ Copier</button></div>
+          <div class="tfoot">Le corps JSON de la requête devient <code>flow_input</code>. Garde cette URL secrète — quiconque la connaît peut lancer le flow.</div>
+          <details><summary>🔗 Brancher un service externe (Shopify, Stripe, GitHub…)</summary>
+            <div class="dbody"><div class="fhelp">Colle cette URL dans la config « webhook » du service :
+              <b>Shopify</b> → Paramètres › Notifications › Webhooks (ex : « Commande créée ») ·
+              <b>Stripe</b> → Développeurs › Webhooks ·
+              <b>GitHub</b> → Settings › Webhooks. Chaque événement reçu lance ce flow avec le payload du service en <code>flow_input</code>.
+              Pour un chemin stable et une méthode précise, utilise plutôt une <b>route HTTP</b> ci-contre.</div></div></details>`
+        :`<div><button onclick="genWebhook()">Générer l'URL webhook</button></div>
+          <div class="tfoot">Une URL à jeton unique sera créée — à coller dans Shopify, Stripe, GitHub… ou à appeler depuis tes propres services.</div>`}
     </div>
-    <div class="panel" style="padding:16px;margin-bottom:14px">
-      <b>🗓 Planification</b>
-      <div style="margin-top:8px"><button class="ghost sm" onclick="scheduleFlow()">planifier ce flow…</button></div>
-      <div class="sm muted" style="margin-top:6px">Crée une tâche planifiée (quotidienne ou cron) liée à ce flow. Retrouve et gère les planifications dans la section <b>Planificateur</b>.</div>
-    </div>
-    <div class="panel" style="padding:16px;margin-bottom:14px" id="flow_trig_list">
-      <b>🛣 Routes HTTP &amp; 📧 Email</b>
-      <div id="trig_rows" class="sm" style="margin-top:8px"><span class="muted">chargement…</span></div>
-      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <select id="trig_method" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px;font-size:12px">
-          ${['POST','GET','PUT','PATCH','DELETE'].map(x=>`<option>${x}</option>`).join('')}</select>
-        <input id="trig_path" placeholder="chemin (ex : garage/devis)" style="max-width:200px">
-        <button class="ghost sm" onclick="addHttpTrigger()">+ Route HTTP</button>
+
+    <div class="tcard">
+      <div class="tcard-head">
+        <span class="tcard-ic">📧</span>
+        <div><h3>Email entrant</h3><div class="tdesc">Ce flow reçoit sa propre adresse — chaque mail reçu le déclenche.</div></div>
+        <span class="sp"></span><span class="badge off" id="email_badge">…</span>
       </div>
-      <div class="sm muted" style="margin-top:4px">La route répond sur <code>${location.origin}/r/&lt;chemin&gt;</code> — corps JSON + query → <code>flow_input</code>.</div>
-      <div style="margin-top:10px;display:grid;gap:5px;max-width:430px;border-top:1px dashed var(--line);padding-top:8px">
-        <div style="display:flex;gap:5px"><input id="trig_ehost" placeholder="IMAP host (ex : imap.gmail.com)" style="flex:1"><input id="trig_eport" placeholder="993" style="max-width:70px"></div>
-        <div style="display:flex;gap:5px"><input id="trig_euser" placeholder="email / login" style="flex:1"><input id="trig_epass" type="password" placeholder="mot de passe (app)" style="flex:1"></div>
-        <div style="display:flex;gap:5px;align-items:center"><input id="trig_efolder" placeholder="dossier (INBOX)" style="max-width:140px"><input id="trig_epoll" placeholder="intervalle s (120)" style="max-width:140px">
-        <button class="ghost sm" onclick="addEmailTrigger()">+ Trigger email</button></div>
-        <div class="sm muted">Chaque nouveau mail (non lu, dédup Message-ID) lance le flow avec <code>{from, subject, text}</code>.</div>
-      </div>
+      <div id="email_card_body"><span class="muted sm">chargement…</span></div>
     </div>
-    ${onErrorPanel()}`;
-  loadFlowTriggers();
+
+    <div class="tcard">
+      <div class="tcard-head">
+        <span class="tcard-ic">🛣</span>
+        <div><h3>Routes HTTP</h3><div class="tdesc">Expose le flow sur un chemin propre de l'API, avec la méthode de ton choix.</div></div>
+      </div>
+      <div id="trig_http_rows" class="frow tight"><span class="muted sm">chargement…</span></div>
+      <div class="tsep"></div>
+      <div class="frow tight" style="grid-template-columns:110px 1fr auto;align-items:end">
+        <div class="field"><label>Méthode</label>
+          <select id="trig_method">${['POST','GET','PUT','PATCH','DELETE'].map(x=>`<option>${x}</option>`).join('')}</select></div>
+        <div class="field"><label>Chemin</label><input id="trig_path" placeholder="garage/devis"></div>
+        <button class="ghost sm" onclick="addHttpTrigger()" style="height:35px">+ Ajouter</button>
+      </div>
+      <div class="tfoot">La route répond sur <code>${location.origin}/r/&lt;chemin&gt;</code> — corps JSON + paramètres de requête → <code>flow_input</code>.</div>
+    </div>
+
+    <div class="tcard">
+      <div class="tcard-head">
+        <span class="tcard-ic">🗓</span>
+        <div><h3>Planification</h3><div class="tdesc">Lance le flow à heure fixe, chaque jour ou selon une expression cron.</div></div>
+      </div>
+      <div><button class="ghost" onclick="scheduleFlow()">Planifier ce flow…</button></div>
+      <div class="tfoot">Les planifications se gèrent ensuite dans la section <b>Planificateur</b>.</div>
+    </div>
+
+    ${onErrorPanel()}
+
+    <div class="tcard full" style="flex-direction:row;align-items:center;gap:10px;padding:13px 20px">
+      <span class="fhelp">Autres déclencheurs (websocket, kafka, nats, sqs, mqtt, postgres…) : déclarables via l'API <code>/triggers</code>, actifs avec un broker dédié.</span>
+    </div>
+  </div>`;
+  loadFlowTriggers(); loadEmailCard();
 }
 // — encart « Gestionnaire d'erreurs » (modules on_error du flow) —
 function onErrorPanel(){
   const he=currentFlow.on_error||[];
   const rows=he.map((m,i)=>{ const meta=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'};
-    return `<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;padding:6px;margin-bottom:5px">
-      <span style="font-size:14px">${meta.icon}</span>
-      <input value="${esc(m.summary||'')}" onchange="errEdit(${i},'summary',this.value)" style="flex:1" placeholder="nom">
+    return `<div class="trow">
+      <span style="font-size:14px;flex:none">${meta.icon}</span>
+      <input value="${esc(m.summary||'')}" onchange="errEdit(${i},'summary',this.value)" placeholder="nom">
       ${m.type==='email'
-        ? `<input value="${esc(m.to||'')}" onchange="errEdit(${i},'to',this.value)" placeholder="destinataire" style="max-width:160px">`
-        : `<span class="sm muted">code</span>`}
-      <a href="#" style="color:#dc2626" onclick="errDel(${i});return false">×</a></div>`;
-  }).join('') || `<div class="sm muted" style="margin-bottom:6px">Aucun gestionnaire. Si une étape échoue, le flow s'arrête en erreur.</div>`;
-  return `<div class="panel" style="padding:16px">
-    <b>🛟 Gestionnaire d'erreurs</b>
-    <div class="sm muted" style="margin:6px 0 10px">Modules exécutés si une étape échoue (le flow ne plante pas, statut « error_handled »). Dispo dans le handler : <code>{{ error.message }}</code>, <code>{{ error.step }}</code>.</div>
-    ${rows}
-    <div style="display:flex;gap:6px;margin-top:6px">
-      <button class="ghost sm" onclick="errAdd('email')">+ ✉️ email</button>
-      <button class="ghost sm" onclick="errAdd('code')">+ &lt;/&gt; code</button>
+        ? `<input value="${esc(m.to||'')}" onchange="errEdit(${i},'to',this.value)" placeholder="destinataire" style="max-width:180px">`
+        : `<span class="pill" style="flex:none">code</span>`}
+      <a href="#" class="x" onclick="errDel(${i});return false" title="retirer">×</a></div>`;
+  }).join('') || `<div class="fhelp">Aucun gestionnaire : si une étape échoue, le flow s'arrête en erreur.</div>`;
+  return `<div class="tcard">
+    <div class="tcard-head">
+      <span class="tcard-ic">🛟</span>
+      <div><h3>Gestionnaire d'erreurs</h3><div class="tdesc">Exécuté si une étape échoue — le flow se termine en « error_handled » au lieu de planter.</div></div>
+      <span class="sp"></span><span class="badge ${he.length?'on':'off'}">${he.length?(he.length+' module'+(he.length>1?'s':'')):'aucun'}</span>
     </div>
-    <div class="sm muted" style="margin-top:6px">Pense à <b>Enregistrer</b> le flow pour persister le gestionnaire.</div>
+    <div class="frow tight">${rows}</div>
+    <div style="display:flex;gap:8px">
+      <button class="ghost sm" onclick="errAdd('email')">+ ✉️ Email</button>
+      <button class="ghost sm" onclick="errAdd('code')">+ &lt;/&gt; Code</button>
+    </div>
+    <div class="tfoot">Variables disponibles : <code>{{ error.message }}</code>, <code>{{ error.step }}</code>. Pense à <b>Enregistrer</b> le flow.</div>
   </div>`;
 }
 function errAdd(t){
@@ -2056,7 +2276,86 @@ function errAdd(t){
 function errEdit(i,k,v){ const h=currentFlow.on_error||[]; if(h[i])h[i][k]=v; }
 function errDel(i){ const h=currentFlow.on_error||[]; h.splice(i,1); renderTriggers(); }
 async function genWebhook(){ const d=await jpost('/flows/'+currentFlow.id+'/webhook-token',{}); currentFlow.webhook_token=d.token; renderTriggers(); banner('Webhook généré.','ok'); }
-function copyWebhook(){ const u=location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token; if(navigator.clipboard)navigator.clipboard.writeText(u); banner('URL copiée.','ok'); }
+function copyWebhook(){ const u=location.origin+'/flows/'+currentFlow.id+'/webhook/'+currentFlow.webhook_token; copyText(u); }
+function copyText(t){ if(navigator.clipboard)navigator.clipboard.writeText(t); banner('Copié dans le presse-papier.','ok'); }
+
+// ── Carte « Email entrant » : adresse par flow (boîte partagée + plus-addressing) ──
+async function loadEmailCard(){
+  const body=$('#email_card_body'), badge=$('#email_badge'); if(!body||!currentFlow)return;
+  let st={}; try{ st=await jget('/triggers/email-settings')||{}; }catch(e){ st={}; }
+  window._emailSettings=st;
+  const configured=!!st.configured, tok=currentFlow.email_token;
+  const addr=(configured&&tok&&st.address)?st.address.replace('@','+'+tok+'@'):null;
+  if(badge){ badge.className='badge '+(addr?'on':(configured?'off':'warn'));
+    badge.textContent=addr?'actif':(configured?'adresse à générer':'boîte à configurer'); }
+  let top;
+  if(addr) top=`<div class="copybox"><code>${esc(addr)}</code><button class="ghost sm" onclick="copyText('${esc(addr)}')">⧉ Copier</button></div>
+    <div class="tfoot">Tout email reçu à cette adresse lance le flow avec <code>{from, subject, text}</code> en entrée (dédup par Message-ID).</div>`;
+  else if(configured) top=`<div><button onclick="genEmailAddress()">Générer l'adresse de ce flow</button></div>
+    <div class="tfoot">L'adresse sera dérivée de <code>${esc(st.address||'')}</code> (alias « + »).</div>`;
+  else top=`<div class="fhelp">Aucune boîte partagée configurée. Renseigne-la ci-dessous (admin), puis génère l'adresse du flow.</div>`;
+  body.style.display='flex'; body.style.flexDirection='column'; body.style.gap='12px';
+  body.innerHTML=top+`
+  <details ${configured?'':'open'}>
+    <summary>⚙️ Boîte partagée de l'entreprise (admin)</summary>
+    <div class="dbody">
+      <div class="fhelp">Une seule boîte IMAP pour tous les flows : chaque flow reçoit une adresse dérivée
+        <code>boite+jeton@domaine</code> (alias « + », supporté par Gmail, Outlook, la plupart des serveurs).</div>
+      <div class="field"><label>Adresse de base</label><input id="es_address" value="${esc(st.address||'')}" placeholder="flows@entreprise.com"></div>
+      <div class="frow c2 tight">
+        <div class="field"><label>Hôte IMAP</label><input id="es_host" value="${esc(st.host||'')}" placeholder="imap.gmail.com"></div>
+        <div class="field"><label>Port</label><input id="es_port" value="${esc(String(st.port||993))}"></div>
+      </div>
+      <div class="frow c2 tight">
+        <div class="field"><label>Login</label><input id="es_user" value="${esc(st.user||'')}" placeholder="flows@entreprise.com"></div>
+        <div class="field"><label>Mot de passe ${st.has_password?'(défini)':''}</label><input id="es_pass" type="password" placeholder="${st.has_password?'••••••••  (laisser vide pour conserver)':'mot de passe d’application'}"></div>
+      </div>
+      <div class="frow c2 tight">
+        <div class="field"><label>Dossier</label><input id="es_folder" value="${esc(st.folder||'INBOX')}"></div>
+        <div class="field"><label>Intervalle de scrutation (s)</label><input id="es_poll" value="${esc(String(st.poll_s||60))}"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="sm" onclick="saveEmailSettings()">Enregistrer la boîte</button>
+        ${configured?`<label class="switch" title="activer/désactiver la scrutation"><input type="checkbox" ${st.enabled===false?'':'checked'} onchange="saveEmailSettings({enabled:this.checked})"><i></i></label><span class="fhelp">scrutation ${st.enabled===false?'en pause':'active'}</span>`:''}
+      </div>
+    </div>
+  </details>
+  <details>
+    <summary>📥 Boîte IMAP dédiée à ce flow (avancé)</summary>
+    <div class="dbody">
+      <div id="trig_email_rows" class="frow tight"></div>
+      <div class="frow c2 tight">
+        <div class="field"><label>Hôte IMAP</label><input id="trig_ehost" placeholder="imap.gmail.com"></div>
+        <div class="field"><label>Port</label><input id="trig_eport" placeholder="993"></div>
+      </div>
+      <div class="frow c2 tight">
+        <div class="field"><label>Login</label><input id="trig_euser" placeholder="email / login"></div>
+        <div class="field"><label>Mot de passe</label><input id="trig_epass" type="password" placeholder="mot de passe (app)"></div>
+      </div>
+      <div class="frow c2 tight">
+        <div class="field"><label>Dossier</label><input id="trig_efolder" placeholder="INBOX"></div>
+        <div class="field"><label>Intervalle (s)</label><input id="trig_epoll" placeholder="120"></div>
+      </div>
+      <div><button class="ghost sm" onclick="addEmailTrigger()">+ Connecter cette boîte</button></div>
+    </div>
+  </details>`;
+  loadFlowTriggers();
+}
+async function genEmailAddress(){
+  const d=await jpost('/flows/'+currentFlow.id+'/email-token',{});
+  if(d.error){banner(d.error,'ko');return}
+  currentFlow.email_token=d.token; loadEmailCard();
+  banner(d.address?('Adresse créée : '+d.address):'Jeton créé — configure la boîte partagée pour obtenir l’adresse.','ok');
+}
+async function saveEmailSettings(extra){
+  const v=id=>{const e=$(id);return e?e.value.trim():undefined};
+  const cfg=extra||{address:v('#es_address'),host:v('#es_host'),port:parseInt(v('#es_port'))||993,
+    user:v('#es_user'),folder:v('#es_folder')||'INBOX',poll_s:parseInt(v('#es_poll'))||60};
+  if(!extra){const p=$('#es_pass'); if(p&&p.value)cfg.password=p.value;}
+  const d=await jput('/triggers/email-settings',cfg);
+  if(d.error){banner(d.error,'ko');return}
+  banner('Boîte partagée enregistrée.','ok'); loadEmailCard();
+}
 async function scheduleFlow(){
   const cron=prompt('Expression cron (min h jour mois jour-semaine) — laisse vide pour un horaire quotidien :','');
   if(cron===null)return;
@@ -2103,18 +2402,24 @@ async function saveFlow(){
   await jpatch('/flows/'+currentFlow.id,{name:currentFlow.name,summary:currentFlow.summary,inputs:currentFlow.inputs,modules:currentFlow.modules,on_error:currentFlow.on_error||[],ui:currentFlow.ui});
   banner('Flow enregistré.','ok'); loadFlows();
 }
-// ── Triggers (routes HTTP / email) ──
+// ── Triggers (routes HTTP / boîtes email / autres kinds) ──
 async function loadFlowTriggers(){
-  const el=$('#trig_rows'); if(!el||!currentFlow)return;
+  if(!currentFlow)return;
+  const httpEl=$('#trig_http_rows'), emEl=$('#trig_email_rows');
+  if(!httpEl&&!emEl)return;
   const d=await jget('/triggers?flow_id='+currentFlow.id); const ts=d.triggers||[];
-  el.innerHTML=ts.map(t=>{
-    const c=t.config||{}; let lbl='';
-    if(t.kind==='http') lbl=`<code>${esc(c.method||'POST')} /r/${esc(c.route_path||'')}</code>`;
-    else if(t.kind==='email') lbl=`📧 <code>${esc(c.user||'')}</code> @ ${esc(c.host||'')} (${esc(String(c.poll_s||120))}s)`;
-    else lbl=esc(t.kind)+(t.active===false?' <span class="pill" style="color:#b45309">inactif (broker requis)</span>':'');
-    return `<div class="row"><span>${lbl}</span><span class="det">${t.enabled?'actif':'désactivé'} · <a href="#" style="color:#dc2626" onclick="delTrigger('${t.id}');return false">suppr</a></span></div>`;
-  }).join('')||'<span class="muted">Aucune route/email pour ce flow.</span>';
+  const row=t=>{const c=t.config||{};
+    const sw=`<label class="switch" title="${t.enabled?'désactiver':'activer'}"><input type="checkbox" ${t.enabled?'checked':''} onchange="toggleTrigger('${t.id}',this.checked)"><i></i></label>`;
+    const del=`<a href="#" class="x" onclick="delTrigger('${t.id}');return false" title="supprimer">×</a>`;
+    if(t.kind==='http') return `<div class="trow"><span class="method-chip">${esc(c.method||'POST')}</span><code>/r/${esc(c.route_path||'')}</code><span class="sp"></span>${sw}${del}</div>`;
+    if(t.kind==='email') return `<div class="trow"><span style="flex:none">📥</span><code>${esc(c.user||'')}</code><span class="fhelp" style="flex:none">@ ${esc(c.host||'')} · ${esc(String(c.poll_s||120))}s</span><span class="sp"></span>${sw}${del}</div>`;
+    return `<div class="trow"><span class="pill" style="flex:none">${esc(t.kind)}</span><span class="fhelp">${t.active===false?'inactif — broker/runtime requis':''}</span><span class="sp"></span>${sw}${del}</div>`;};
+  if(httpEl){ const hs=ts.filter(t=>t.kind==='http'), others=ts.filter(t=>!['http','email'].includes(t.kind));
+    httpEl.innerHTML=(hs.map(row).join('')+others.map(row).join(''))||'<span class="fhelp">Aucune route pour ce flow.</span>'; }
+  if(emEl){ const es2=ts.filter(t=>t.kind==='email');
+    emEl.innerHTML=es2.map(row).join('')||'<span class="fhelp">Aucune boîte dédiée connectée à ce flow.</span>'; }
 }
+async function toggleTrigger(id,en){ const d=await jpatch('/triggers/'+id,{enabled:en}); if(d.error)banner(d.error,'ko'); else banner(en?'Déclencheur activé.':'Déclencheur désactivé.','ok'); }
 async function addHttpTrigger(){
   const path=$('#trig_path').value.trim(); if(!path){banner('Chemin requis.','ko');return}
   const d=await jpost('/triggers',{kind:'http',target:{flow_id:currentFlow.id},config:{method:$('#trig_method').value,route_path:path}});
@@ -2125,7 +2430,7 @@ async function addEmailTrigger(){
   const cfg={host,port:parseInt($('#trig_eport').value)||993,user:$('#trig_euser').value.trim(),
     password:$('#trig_epass').value,folder:$('#trig_efolder').value.trim()||'INBOX',poll_s:parseInt($('#trig_epoll').value)||120};
   const d=await jpost('/triggers',{kind:'email',target:{flow_id:currentFlow.id},config:cfg});
-  if(d.error){banner(d.error,'ko');return} $('#trig_epass').value=''; banner('Trigger email créé.','ok'); loadFlowTriggers();
+  if(d.error){banner(d.error,'ko');return} $('#trig_epass').value=''; banner('Boîte dédiée connectée.','ok'); loadFlowTriggers();
 }
 async function delTrigger(id){ await jdel('/triggers/'+id); loadFlowTriggers(); }
 // ── Import / export OpenFlow (interop Hub Windmill) ──

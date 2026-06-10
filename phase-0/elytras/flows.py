@@ -199,6 +199,9 @@ def _legacy_module(m: dict, notes: list, pos: dict):
     elif t == "agent":
         out["value"] = {"type": "aiagent", "agent_id": m.get("agent_id") or "orchestrateur",
                         "memory": m.get("memory") or "flow", "tools": [],
+                        **({"system_prompt": m["system_prompt"]} if m.get("system_prompt") else {}),
+                        **({"output_schema": m["output_schema"]} if m.get("output_schema") else {}),
+                        **({"max_iterations": int(m["max_iterations"])} if m.get("max_iterations") else {}),
                         "input_transforms": {"user_message": tmplt(m.get("prompt", ""))}}
     elif t == "tool":
         out["value"] = {"type": "mcptool", "server_id": m.get("server_id"), "tool": m.get("tool"),
@@ -312,6 +315,7 @@ def _normalize(f: dict) -> dict:
     f.setdefault("schema", {"type": "object", "properties": {}, "required": []})
     f.setdefault("ui", {"pos": {}})
     f.setdefault("webhook_token", None)
+    f.setdefault("email_token", None)
     v = f.setdefault("value", {})
     v.setdefault("modules", [])
     v["modules"] = [normalize_module(m) for m in v["modules"]]
@@ -334,6 +338,7 @@ def list_flows(user_id, project_ids=None) -> list[dict]:
                         "owner_id": n.get("owner_id"), "schema": n.get("schema"),
                         "modules": n["value"]["modules"],
                         "webhook_token": n.get("webhook_token"),
+                        "email_token": n.get("email_token"),
                         "inputs": schema_to_inputs(n.get("schema"))})
     return out
 
@@ -411,6 +416,26 @@ def update_flow(fid, **fields) -> bool:
 
 def delete_flow(fid) -> bool:
     return filestore.delete("flows", fid)
+
+
+def ensure_email_token(fid) -> str | None:
+    """Jeton email du flow (suffixe plus-addressing) : hex, sûr dans une adresse."""
+    f = filestore.items("flows").get(fid)
+    if not f:
+        return None
+    if not f.get("email_token"):
+        f["email_token"] = secrets.token_hex(6)
+        filestore.put("flows", fid, f)
+    return f["email_token"]
+
+
+def find_by_email_token(token) -> dict | None:
+    if not token:
+        return None
+    for fid, f in filestore.items("flows").items():
+        if f.get("email_token") == token:
+            return get_flow(fid)
+    return None
 
 
 def ensure_webhook_token(fid) -> str | None:

@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import email as email_mod
 import email.header
+import email.utils
 import imaplib
 import time
 import uuid
@@ -163,6 +164,129 @@ def poll_email_trigger(tid: str, t: dict, imap_factory=None) -> list[dict]:
             seen.add(mid)
             fresh.append({"from": _decode(msg.get("From")), "subject": _decode(msg.get("Subject")),
                           "text": _body_text(msg), "message_id": mid, "date": msg.get("Date", "")})
+    finally:
+        try:
+            M.logout()
+        except Exception:
+            pass
+    if fresh:
+        filestore.put("flow_trigger_state", seen_key, {"seen": list(seen)[-5000:]})
+    return fresh
+
+
+# ───────────── Boîte partagée : une adresse par flow (plus-addressing, façon Windmill) ─────────────
+# L'admin configure UNE boîte IMAP (ex : flows@entreprise.com). Chaque flow reçoit une
+# adresse dérivée `flows+<token>@entreprise.com` ; le poller route par destinataire.
+SETTINGS_SECTION = "trigger_settings"
+EMAIL_KEY = "email_inbox"
+_ADDR_HEADERS = ("To", "Cc", "Delivered-To", "X-Original-To", "Envelope-To", "Resent-To")
+
+
+def email_settings() -> dict:
+    """Réglages de la boîte partagée, mot de passe expurgé (pour l'UI/API)."""
+    cfg = filestore.items(SETTINGS_SECTION).get(EMAIL_KEY) or {}
+    out = {k: v for k, v in cfg.items() if k not in ("password_enc", "last_poll")}
+    out["configured"] = bool(cfg.get("host") and cfg.get("address"))
+    out["has_password"] = bool(cfg.get("password_enc"))
+    return out
+
+
+def save_email_settings(cfg: dict) -> dict:
+    cur = filestore.items(SETTINGS_SECTION).get(EMAIL_KEY) or {}
+    new = dict(cur)
+    for k in ("host", "user", "folder", "address"):
+        if cfg.get(k) is not None:
+            new[k] = str(cfg[k]).strip()
+    for k in ("port", "poll_s"):
+        if cfg.get(k) is not None:
+            new[k] = int(cfg[k])
+    if cfg.get("enabled") is not None:
+        new["enabled"] = bool(cfg["enabled"])
+    if cfg.get("password"):
+        new["password_enc"] = _enc(cfg["password"])
+    addr = (new.get("address") or "").lower()
+    if addr and "@" not in addr:
+        raise ValueError("address doit être une adresse email complète (ex : flows@entreprise.com)")
+    new["address"] = addr
+    filestore.put(SETTINGS_SECTION, EMAIL_KEY, new)
+    return email_settings()
+
+
+def flow_address(token: str, settings: dict | None = None) -> str | None:
+    """Adresse email dédiée d'un flow : base `local@dom` + token → `local+token@dom`."""
+    s = settings if settings is not None else email_settings()
+    addr = (s.get("address") or "").strip().lower()
+    if not addr or "@" not in addr or not token:
+        return None
+    local, dom = addr.split("@", 1)
+    return f"{local}+{token}@{dom}"
+
+
+def _plus_tokens(msg, base_addr: str) -> list[str]:
+    """Jetons `+<token>` trouvés dans les destinataires correspondant à l'adresse de base."""
+    if "@" not in (base_addr or ""):
+        return []
+    local, dom = base_addr.lower().split("@", 1)
+    raw = []
+    for h in _ADDR_HEADERS:
+        raw += msg.get_all(h) or []
+    out = []
+    for _n, a in email.utils.getaddresses(raw):
+        a = (a or "").lower().strip()
+        if "@" not in a:
+            continue
+        loc, d = a.split("@", 1)
+        if d == dom and loc.startswith(local + "+"):
+            tok = loc[len(local) + 1:]
+            if tok and tok not in out:
+                out.append(tok)
+    return out
+
+
+def shared_inbox_due(now=None) -> bool:
+    """La boîte partagée est-elle à scruter maintenant ? (met à jour last_poll si oui)"""
+    cfg = filestore.items(SETTINGS_SECTION).get(EMAIL_KEY) or {}
+    if not cfg.get("host") or not cfg.get("address") or cfg.get("enabled") is False:
+        return False
+    now = now or time.time()
+    if now - float(cfg.get("last_poll") or 0) < int(cfg.get("poll_s") or 60):
+        return False
+    cfg["last_poll"] = now
+    filestore.put(SETTINGS_SECTION, EMAIL_KEY, cfg)
+    return True
+
+
+def poll_shared_inbox(imap_factory=None) -> list[tuple[str, dict]]:
+    """Scrute la boîte partagée ; renvoie [(token, payload)] des nouveaux messages,
+    un couple par adresse `+token` destinataire (dédup persistante par Message-ID)."""
+    cfg = filestore.items(SETTINGS_SECTION).get(EMAIL_KEY) or {}
+    base = cfg.get("address") or ""
+    if not cfg.get("host") or not base:
+        return []
+    pwd = _dec(cfg["password_enc"]) if cfg.get("password_enc") else ""
+    factory = imap_factory or (lambda: imaplib.IMAP4_SSL(cfg["host"], int(cfg.get("port") or 993)))
+    seen_key = "emailtrig:shared"
+    seen = set((filestore.items("flow_trigger_state").get(seen_key) or {}).get("seen") or [])
+    fresh = []
+    M = factory()
+    try:
+        M.login(cfg.get("user", ""), pwd)
+        M.select(cfg.get("folder") or "INBOX")
+        _typ, data = M.search(None, "UNSEEN")
+        for num in (data[0].split() if data and data[0] else [])[:20]:
+            _t, msg_data = M.fetch(num, "(RFC822)")
+            if not msg_data or not msg_data[0]:
+                continue
+            msg = email_mod.message_from_bytes(msg_data[0][1])
+            mid = msg.get("Message-ID") or f"{num.decode()}:{msg.get('Date', '')}"
+            if mid in seen:
+                continue
+            seen.add(mid)
+            payload = {"from": _decode(msg.get("From")), "to": _decode(msg.get("To")),
+                       "subject": _decode(msg.get("Subject")), "text": _body_text(msg),
+                       "message_id": mid, "date": msg.get("Date", "")}
+            for tok in _plus_tokens(msg, base):
+                fresh.append((tok, payload))
     finally:
         try:
             M.logout()

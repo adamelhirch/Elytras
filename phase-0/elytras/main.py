@@ -1287,13 +1287,13 @@ def _agent_provider():
     return providers.CodexProvider()
 
 
-def _agent_loop(agent, instr, tools, mapping, input_items, meta, used, autonomy, finalize, queue=None):
+def _agent_loop(agent, instr, tools, mapping, input_items, meta, used, autonomy, finalize, queue=None, max_turns=8):
     cp = _agent_provider()
     tier = (agent.get("tier") or "").strip()
     if tier and getattr(cp, "name", "") == "elytras-gateway":
         cp.default_model = tier                  # gamme IA propre à l'agent (mode passerelle)
     turns = 0
-    while turns < 8:
+    while turns < max(1, min(int(max_turns or 8), 64)):
         if queue is None:
             turn = cp.agent_turn(input_items, instr, tools or None)
             try:
@@ -1334,13 +1334,17 @@ def _msgs_to_items(messages):
             for m in messages if m.get("role") != "system"]
 
 
-def run_agent(agent, messages, mscope, mowner, mproj, user_id, session_id, depth=0, parent_id=None):
+def run_agent(agent, messages, mscope, mowner, mproj, user_id, session_id, depth=0, parent_id=None,
+              extra_instr=None, max_turns=8):
     """Exécution NON interactive (délégation, flow, planif) : autonomie AUTO, jamais de pause."""
     mscope = policy.clamp_memory(user_id, mscope)        # policy : scopes mémoire permis au rôle
     instr, tools, mapping = _agent_setup(agent, messages, mscope, mowner, mproj, user_id, depth)
+    if extra_instr:
+        instr = instr + "\n\n" + str(extra_instr)
     meta = {"mscope": mscope, "mowner": mowner, "mproj": mproj, "user_id": user_id,
             "session_id": session_id, "parent_id": parent_id, "depth": depth}
-    res = _agent_loop(agent, instr, tools, mapping, _msgs_to_items(messages), meta, [], "auto", None)
+    res = _agent_loop(agent, instr, tools, mapping, _msgs_to_items(messages), meta, [], "auto", None,
+                      max_turns=max_turns)
     return res["answer"], res["used"]
 
 
@@ -1598,7 +1602,25 @@ def _poll_dedup_action(m, ns, meta):
 
 
 # ── HOOKS injectés dans le moteur (pas d'import circulaire) ──
-def _hook_agent(agent_id, prompt, memory, meta):
+def _parse_json_loose(text):
+    """Extrait un objet/tableau JSON d'une réponse d'agent (gère les clôtures ```json)."""
+    if not isinstance(text, str):
+        return None
+    s = text.strip()
+    if s.startswith("```"):
+        s = s.split("\n", 1)[-1]
+        s = s.rsplit("```", 1)[0].strip()
+    for start in (s.find("{"), s.find("[")):
+        if start < 0:
+            continue
+        try:
+            return json.loads(s[start:])
+        except Exception:
+            continue
+    return None
+
+
+def _hook_agent(agent_id, prompt, memory, meta, opts=None):
     ag = agents.get_agent(agent_id or "orchestrateur") or agents.get_agent("orchestrateur")
     mem = (memory or "flow").lower()
     if mem == "perso":
@@ -1614,9 +1636,23 @@ def _hook_agent(agent_id, prompt, memory, meta):
         a_scope, a_owner, a_proj = "none", None, None
     else:
         a_scope, a_owner, a_proj = meta["mscope"], meta["mowner"], meta["mproj"]
+    opts = opts or {}
+    extra = []
+    if opts.get("system_prompt"):
+        extra.append(str(opts["system_prompt"]))
+    schema = opts.get("output_schema")
+    if schema:
+        extra.append("Ta réponse finale doit être UNIQUEMENT un JSON valide conforme à ce schéma "
+                     "(aucun texte avant ou après) :\n" + json.dumps(schema, ensure_ascii=False))
     out, _u = run_agent(ag, [{"role": "user", "content": prompt}],
                         a_scope, a_owner, a_proj, meta["user_id"], None,
-                        depth=0, parent_id=meta.get("root"))
+                        depth=0, parent_id=meta.get("root"),
+                        extra_instr=("\n\n".join(extra) or None),
+                        max_turns=int(opts.get("max_iterations") or 8))
+    if schema:
+        parsed = _parse_json_loose(out)
+        if parsed is not None:
+            return parsed
     return out
 
 
@@ -3024,6 +3060,40 @@ def make_webhook_token(fid: str, user_id: str = DEFAULT_USER, actor: str = Depen
     return {"token": tok, "url": f"{base}/flows/{fid}/webhook/{tok}"}
 
 
+@app.post("/flows/{fid}/email-token")
+def make_email_token(fid: str, user_id: str = DEFAULT_USER, actor: str = Depends(_need("flow.edit"))):
+    """Adresse email dédiée du flow (plus-addressing sur la boîte partagée, façon Windmill)."""
+    tok = flows.ensure_email_token(fid)
+    if not tok:
+        return JSONResponse({"error": "flow introuvable"}, status_code=404)
+    st = triggers.email_settings()
+    return {"token": tok, "address": triggers.flow_address(tok, st), "inbox_configured": st["configured"]}
+
+
+@app.get("/triggers/email-settings")
+def email_settings_get(actor: str = Depends(_need("flow.edit"))):
+    return triggers.email_settings()
+
+
+class _EmailSettingsReq(BaseModel):
+    host: str | None = None
+    port: int | None = None
+    user: str | None = None
+    password: str | None = None
+    folder: str | None = None
+    address: str | None = None
+    poll_s: int | None = None
+    enabled: bool | None = None
+
+
+@app.put("/triggers/email-settings")
+def email_settings_put(req: _EmailSettingsReq, actor: str = Depends(_need("admin"))):
+    try:
+        return triggers.save_email_settings(req.model_dump(exclude_none=True))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
 class FlowRunReq(BaseModel):
     inputs: dict = {}
     up_to: str | None = None
@@ -3297,10 +3367,23 @@ async def http_route_trigger(route_path: str, request: Request):
     return _run_trigger_target(t, payload, "http")
 
 
+def _route_shared_email(token, payload):
+    """Un mail reçu sur `boite+<token>@…` → lance le flow correspondant."""
+    f = flows.find_by_email_token(token)
+    if f:
+        run_flow(f, payload, f.get("owner_id"), triggered_by="email")
+
+
 def _email_trigger_loop():
-    """Scrute les boîtes IMAP des triggers email (intervalle par trigger) et lance les cibles."""
+    """Scrute la boîte partagée (adresse par flow) + les boîtes IMAP par trigger."""
     while True:
         try:
+            if triggers.shared_inbox_due():
+                try:
+                    for token, payload in triggers.poll_shared_inbox():
+                        _route_shared_email(token, payload)
+                except Exception:
+                    pass
             for tid, t in triggers.email_triggers_due():
                 try:
                     for msg in triggers.poll_email_trigger(tid, t):

@@ -114,8 +114,10 @@ def _exec_value(m, ns, meta):
     if t == "aiagent":
         prompt = eval_transform((v.get("input_transforms") or {}).get("user_message"), ns)
         HOOKS["audit"]("agent", v.get("agent_id", ""), m, meta)
+        opts = {"system_prompt": v.get("system_prompt"), "output_schema": v.get("output_schema"),
+                "max_iterations": v.get("max_iterations")}
         return HOOKS["agent"](v.get("agent_id") or "orchestrateur", str(prompt or ""),
-                              v.get("memory") or "flow", meta)
+                              v.get("memory") or "flow", meta, opts)
     if t == "mcptool":
         args = eval_transforms(v.get("input_transforms"), ns)
         HOOKS["audit"]("tool", v.get("tool", ""), m, meta)
