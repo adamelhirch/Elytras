@@ -1,0 +1,209 @@
+{
+ "source": "https://hub.windmill.dev/scripts/top",
+ "count": 29,
+ "scripts": [
+  {
+   "ask_id": 1529,
+   "app": "RSS",
+   "summary": "RSS Feed Fetcher",
+   "description": "Fetch new items from an RSS Feed",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22378,
+   "app": "auth0",
+   "summary": "New Log Event",
+   "description": "Emits new tenant log events (logins, errors, admin changes) since the last run, using Auth0 checkpoint pagination.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2444,
+   "app": "bitbucket",
+   "summary": "New Branch",
+   "description": "Trigger when a new branch is created.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2439,
+   "app": "bitbucket",
+   "summary": "New Commit",
+   "description": "Trigger when a new commit is pushed to a branch.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2431,
+   "app": "bitbucket",
+   "summary": "New Commit Comment",
+   "description": "Trigger when a commit receives a comment.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2428,
+   "app": "bitbucket",
+   "summary": "New Issue",
+   "description": "Trigger when a new issue is created in a repository.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2441,
+   "app": "bitbucket",
+   "summary": "New Pipeline Event",
+   "description": "Trigger when a pipeline event occurs.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2425,
+   "app": "bitbucket",
+   "summary": "New Pull Request",
+   "description": "Trigger when a new pull request is created in a repository.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2446,
+   "app": "bitbucket",
+   "summary": "New Repository",
+   "description": "Trigger when a new repository is created in a workspace.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22356,
+   "app": "databricks",
+   "summary": "New Completed Job Run",
+   "description": "Emits job runs that have reached a terminal state since the last poll. Optionally restrict to a single job.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1369,
+   "app": "funkwhale",
+   "summary": "Watch for new listenings",
+   "description": "GET /api/v1/history/listenings",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1457,
+   "app": "gdrive",
+   "summary": "Get new files",
+   "description": "Trigger script to periodically get the newly uploaded files.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1456,
+   "app": "github",
+   "summary": "List newly added issues",
+   "description": "Trigger script to periodically get the newly added issues of a GitHub repository.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1208,
+   "app": "github",
+   "summary": "Notify of new Github repo stars",
+   "description": "",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1301,
+   "app": "hackernews",
+   "summary": "Trigger everytime a new item text on HackerNews match at least one mention",
+   "description": "For every new item since last trigger, collect the ones that match at least one of the mentions",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1462,
+   "app": "mongodb",
+   "summary": "Get recently inserted documents",
+   "description": "Trigger script to get the newly added documents in a collection.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22298,
+   "app": "okta",
+   "summary": "New System Log Event",
+   "description": "Emits Okta System Log events published since the last poll, with an optional filter expression.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22334,
+   "app": "pagerduty",
+   "summary": "New or Updated Incident",
+   "description": "Polls incidents and emits those whose status changed since the last run (created, acknowledged, or resolved).",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1327,
+   "app": "reddit",
+   "summary": "Trigger everytime a new item post on reddit matches at least one mention",
+   "description": "For every new post since last trigger collect the ones that match at least one of the mentions.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1459,
+   "app": "s3",
+   "summary": "Get recently updated objects",
+   "description": "Trigger script to check for recently updated objects.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22280,
+   "app": "salesforce",
+   "summary": "New or Updated Record",
+   "description": "Emits records of an object whose LastModifiedDate is newer than the last poll, tracked via Windmill state.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22425,
+   "app": "servicenow",
+   "summary": "New or Updated Record",
+   "description": "Emits records whose timestamp is newer than the last poll, tracked via Windmill state. Defaults to sys_updated_on.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 1463,
+   "app": "stripe",
+   "summary": "Get recently added customers",
+   "description": "Trigger script to get the newly created customers.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2248,
+   "app": "twilio",
+   "summary": "New Call",
+   "description": "Trigger each time a call to the phone number is completed.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2244,
+   "app": "twilio",
+   "summary": "New Phone Number",
+   "description": "Trigger when you add a new phone number to your account",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2246,
+   "app": "twilio",
+   "summary": "New Recording",
+   "description": "Trigger when a new call recording is created",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2247,
+   "app": "twilio",
+   "summary": "New SMS",
+   "description": "Trigger every time an SMS is sent to the phone number set.",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 2245,
+   "app": "twilio",
+   "summary": "New Transcription",
+   "description": "Trigger when a new call transcription is created",
+   "kind": "trigger"
+  },
+  {
+   "ask_id": 22410,
+   "app": "wiz",
+   "summary": "New Issues",
+   "description": "Emits Wiz issues created since the last run (oldest first).",
+   "kind": "trigger"
+  }
+ ]
+}
