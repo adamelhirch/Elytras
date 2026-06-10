@@ -53,8 +53,8 @@ curl -s http://$IP/health    # attendu: {"status":"ok", ..., "sandbox":{"active"
 ### État de la VM (dernier passage)
 
 - `~/elytras` dans la VM = clone du dépôt public ; `.env` d'onboarding préservé au re-provision.
-- `health` : `sandbox.active=true` mais `network_blocked=false` (mode `auto`, detail `open`) →
-  avant un vrai client, viser `network_blocked=true` puis `ELYTRAS_CODE_SANDBOX=on` (fail-closed).
+- `health` : `sandbox.active=true` et `network_blocked=true` (mode `auto`, detail `blocked`) depuis
+  la refonte OpenFlow du 10/06 → reste à passer `ELYTRAS_CODE_SANDBOX=on` (fail-closed) avant un vrai client.
 - `db: down` = normal (mode fichier, Postgres optionnel).
 
 ## Journal des interventions IA
