@@ -7,6 +7,7 @@ import os
 os.environ.setdefault("APP_ENCRYPTION_KEY", "test")
 os.environ.setdefault("SKILLS_DIR", "skills")
 os.environ.setdefault("ELYTRAS_TELEGRAM", "0")        # ne pas démarrer les pollers Telegram
+os.environ.setdefault("ELYTRAS_EMAIL_TRIGGERS", "0")  # ni le poller IMAP des triggers email
 os.environ.setdefault("ELYTRAS_CODE_SANDBOX", "off")  # bwrap/sandbox-exec absents en CI
 os.environ.setdefault("ELYTRAS_STATE_FILE", "/tmp/elytras-test-boot.json")
 

@@ -314,6 +314,39 @@
 
     </div>
   </section>
+  <!-- ════════ VUE : SCRIPTS (bibliothèque d'actions) ════════ -->
+  <section class="view" id="view-scripts" data-view="scripts">
+    <div class="view-head"><span class="ic">📚</span><h2 class="view-title">Scripts</h2><span class="sub">Bibliothèque d'actions réutilisables — multi-langages, schéma auto, test instantané</span></div>
+    <div class="view-grid one">
+    <section class="card full">
+      <h2>Bibliothèque</h2>
+      <p class="sm muted">Un script expose une fonction <code>main(...)</code> : ses paramètres deviennent le <b>schéma d'entrées</b> (auto-déduit) et le script devient une <b>action</b> utilisable dans tous les flows (étape « Script »), en webhook, route HTTP, email ou cron.</p>
+      <div id="scripts_list" class="sm" style="margin-bottom:10px"></div>
+      <div style="border-top:1px dashed var(--line);padding-top:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <input id="sc_summary" placeholder="nom du script (ex : Relance client)" style="max-width:230px">
+          <select id="sc_lang" style="background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px"></select>
+          <select id="sc_kind" style="background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px;font-size:12px">
+            <option value="action">action</option><option value="trigger">trigger (poll)</option>
+            <option value="approval">approbation</option><option value="error_handler">gestion d'erreur</option>
+            <option value="preprocessor">préprocesseur</option></select>
+          <span class="sm muted" id="sc_editing"></span>
+        </div>
+        <textarea id="sc_content" rows="9" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px" placeholder="def main(client: str, montant: float = 0):\n    return {'ok': True, 'client': client}"></textarea>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
+          <button class="ghost sm" onclick="saveScript()">💾 Enregistrer (déployer)</button>
+          <button class="ghost sm" onclick="previewSchema()">🧩 Schéma</button>
+          <input id="sc_args" placeholder='args de test JSON — {"client":"Dupont"}' style="flex:1;min-width:180px">
+          <button class="ghost sm" onclick="testScript()">▶ Tester</button>
+          <button class="ghost sm" onclick="resetScriptForm()">nouveau</button>
+        </div>
+        <div id="sc_out" class="sm" style="margin-top:8px"></div>
+      </div>
+    </section>
+    </div>
+  </section>
+  <!-- ════════ FIN VUE SCRIPTS ════════ -->
+
   <!-- ════════ FIN VUE ADMINISTRATION ════════ -->
 
   <!-- ════════ VUE : AGENTS ════════ -->
@@ -426,6 +459,7 @@
             <input id="new_flow_name" placeholder="nom du nouveau flow" style="max-width:180px">
             <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="createFlow()">+ Flow</button>
             <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="generateFlow()" title="Décris un workflow en langage naturel, l'IA le construit">✨ Générer (IA)</button>
+    <button class="ghost sm" data-cap="flow.create" style="padding:6px 11px" onclick="importOpenflow()" title="Importer un JSON OpenFlow (Hub Windmill)">⇪ Importer OpenFlow</button>
             <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
             <span id="flow_toolbar_actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1"></span>
           </div>
@@ -681,6 +715,7 @@ const NAV=[
   {name:'chat',          view:'view-chat',          label:'Chat',           icon:'💬', cap:null,              group:'Espace de travail'},
   {name:'agents',        view:'view-agents',        label:'Agents',         icon:'🤖', cap:null,              group:'Espace de travail'},
   {name:'workflows',     view:'view-workflows',     label:'Workflows',      icon:'🔀', cap:'flow.view',       group:'Espace de travail'},
+  {name:'scripts',       view:'view-scripts',       label:'Scripts',        icon:'📚', cap:'flow.view',       group:'Espace de travail'},
   {name:'files',         view:'view-files',         label:'Fichiers',       icon:'📁', cap:'file.read',       group:'Espace de travail'},
   {name:'connectors',    view:'view-connectors',    label:'Connecteurs',    icon:'🔌', cap:'mcp.manage',      group:'Configuration'},
   {name:'providers',     view:'view-providers',     label:'Providers',      icon:'🧠', cap:'provider.manage', group:'Configuration'},
@@ -730,6 +765,7 @@ function onSectionShown(name){
     else if(name==='admin' && (window._caps||[]).includes('admin')) loadAdmin();
     else if(name==='observability'){ loadObs(); loadAudit(); }
     else if(name==='workflows'){ loadFlows(); loadTasks(); renderFlow(); renderTriggers(); setTimeout(sizeFlowCanvas,0); }
+    else if(name==='scripts') loadScriptsView();
     else if(name==='files') loadFiles();
     else if(name==='connectors'){ loadServers(); loadSkills(); }
     else if(name==='providers') loadProviders();
@@ -1267,14 +1303,24 @@ function fitFlow(){
 const SELST='background:#ffffff;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:5px;font-size:12px';
 const CONTAINERS=['forloop','whileloop','branchone','branchall'];
 const TYPE_META={agent:{icon:'🤖',label:'Agent IA',color:'#7c5cff'},tool:{icon:'🔌',label:'Outil MCP',color:'#3a7afe'},
- code:{icon:'</>',label:'Code',color:'#2ea043'},note:{icon:'📝',label:'Note',color:'#667085'},
+ code:{icon:'</>',label:'Code',color:'#2ea043'},script:{icon:'📚',label:'Script (bibliothèque)',color:'#2ea043'},
+ subflow:{icon:'🧩',label:'Sous-flow',color:'#0aa2c0'},identity:{icon:'➡️',label:'Identity',color:'#667085'},
+ note:{icon:'📝',label:'Note',color:'#667085'},
  http:{icon:'🌐',label:'Requête HTTP',color:'#0aa2c0'},email:{icon:'✉️',label:'Email',color:'#d6336c'},
  sql:{icon:'🗄️',label:'SQL',color:'#6741d9'},trigger:{icon:'📡',label:'Trigger',color:'#f08c00'},
  forloop:{icon:'🔁',label:'Boucle for',color:'#d29922'},whileloop:{icon:'♾️',label:'Boucle while',color:'#d29922'},
  branchone:{icon:'🔀',label:'Branche (one)',color:'#bf5af2'},branchall:{icon:'🔀',label:'Branches (all)',color:'#bf5af2'},
  approval:{icon:'✋',label:'Approbation',color:'#e0533d'}};
-// langages de code : icône + libellé lisible
-const LANG_META={python:{icon:'🐍',label:'Python'},javascript:{icon:'🟨',label:'JavaScript'},typescript:{icon:'🔷',label:'TypeScript'}};
+// langages (enum OpenFlow complet) : icône + libellé ; dispo réelle via window._langs (/scripts)
+const LANG_META={python:{icon:'🐍',label:'Python'},python3:{icon:'🐍',label:'Python'},
+ javascript:{icon:'🟨',label:'JavaScript'},bun:{icon:'🟨',label:'JS (bun)'},
+ typescript:{icon:'🔷',label:'TypeScript'},deno:{icon:'🔷',label:'TS (deno)'},nativets:{icon:'🔷',label:'TS natif'},
+ bash:{icon:'🐚',label:'Bash'},powershell:{icon:'💠',label:'PowerShell'},nu:{icon:'🐚',label:'Nu'},
+ go:{icon:'🐹',label:'Go'},php:{icon:'🐘',label:'PHP'},ruby:{icon:'💎',label:'Ruby'},rust:{icon:'🦀',label:'Rust'},
+ java:{icon:'☕',label:'Java'},csharp:{icon:'#️⃣',label:'C#'},rlang:{icon:'📊',label:'R'},ansible:{icon:'🅰️',label:'Ansible'},
+ graphql:{icon:'◈',label:'GraphQL'},postgresql:{icon:'🗄️',label:'PostgreSQL'},mysql:{icon:'🗄️',label:'MySQL'},
+ duckdb:{icon:'🦆',label:'DuckDB'},bigquery:{icon:'🗄️',label:'BigQuery'},snowflake:{icon:'❄️',label:'Snowflake'},
+ mssql:{icon:'🗄️',label:'MS SQL'},oracledb:{icon:'🗄️',label:'Oracle'}};
 // méta affichée pour un nœud (gère l'icône/le libellé selon le langage du code)
 function nodeMeta(m){
   const base=TYPE_META[m.type]||{icon:'?',label:m.type,color:'#888'};
@@ -1282,8 +1328,65 @@ function nodeMeta(m){
   return base;
 }
 
+let _scEditId=null;
+async function loadScriptsView(){
+  const d=await jget('/scripts'); window._scripts2=(d.scripts||[]); window._langs=d.languages||{};
+  const sel=$('#sc_lang');
+  if(sel&&!sel.dataset.filled){
+    const order=['python3','bun','deno','bash','go','php','ruby','rust','java','powershell','nu','csharp','rlang','graphql','postgresql','mysql','duckdb'];
+    sel.innerHTML=order.map(l=>{const lm=LANG_META[l]||{icon:'',label:l};
+      return `<option value="${l}">${lm.icon} ${lm.label}${(d.languages||{})[l]===false?' (toolchain absente)':''}</option>`;}).join('');
+    sel.dataset.filled='1';
+  }
+  const el=$('#scripts_list'); if(!el)return;
+  el.innerHTML=(window._scripts2||[]).map(x=>{
+    const ins=x.schema&&x.schema.properties?Object.keys(x.schema.properties).join(', '):'';
+    return `<div class="row"><span>${x.builtin?'🏛':'📜'} <b style="font-weight:500">${esc(x.summary||x.path)}</b>
+      <span class="pill">${esc((LANG_META[x.language]||{}).label||x.language||'')}</span>
+      <span class="pill">${esc(x.kind||'action')}</span>${x.builtin?'<span class="pill">builtin</span>':''}
+      ${ins?`<span class="muted sm">(${esc(ins)})</span>`:''}</span>
+      <span class="det"><code>${esc(x.path||'')}</code>
+      ${x.builtin?'':` · <a href="#" onclick="editScript('${x.id}');return false">éditer</a> · <a href="#" style="color:#dc2626" onclick="delScript('${x.id}');return false">suppr</a>`}</span></div>`;
+  }).join('')||'<span class="muted">Aucun script — crée le premier ci-dessous.</span>';
+}
+function resetScriptForm(){ _scEditId=null; $('#sc_summary').value=''; $('#sc_content').value=''; $('#sc_out').innerHTML=''; $('#sc_editing').textContent=''; }
+async function editScript(id){
+  const s=await jget('/scripts/'+id); if(s.error){banner(s.error,'ko');return}
+  _scEditId=id; $('#sc_summary').value=s.summary||''; $('#sc_content').value=s.content||'';
+  $('#sc_lang').value=s.language||'python3'; $('#sc_kind').value=s.kind||'action';
+  $('#sc_editing').textContent='édition : '+(s.path||id);
+  showSection('scripts');
+}
+async function saveScript(){
+  const summary=$('#sc_summary').value.trim(); if(!summary){banner('Nom requis.','ko');return}
+  const body={summary,language:$('#sc_lang').value,content:$('#sc_content').value,kind:$('#sc_kind').value};
+  const d=_scEditId?await jpatch('/scripts/'+_scEditId,body):await jpost('/scripts',body);
+  if(d.error){banner(d.error,'ko');return}
+  _scEditId=d.id||_scEditId; $('#sc_editing').textContent='édition : '+(d.path||'');
+  banner('Script déployé ✓ (version archivée).','ok'); loadScriptsView();
+}
+async function delScript(id){ if(!confirm('Supprimer ce script ?'))return; await jdel('/scripts/'+id); if(_scEditId===id)resetScriptForm(); loadScriptsView(); }
+async function previewSchema(){
+  const d=await jpost('/scripts/parse-schema',{language:$('#sc_lang').value,content:$('#sc_content').value});
+  $('#sc_out').innerHTML='<b>Schéma d\'entrées (auto)</b><pre style="font-size:11px;white-space:pre-wrap">'+esc(JSON.stringify(d.schema||{},null,2))+'</pre>';
+}
+async function testScript(){
+  let args={}; const t=$('#sc_args').value.trim();
+  if(t){ try{args=JSON.parse(t)}catch(e){banner('Args JSON invalides.','ko');return} }
+  let sid=_scEditId;
+  if(!sid){ const d=await jpost('/scripts',{summary:$('#sc_summary').value.trim()||'brouillon test',language:$('#sc_lang').value,content:$('#sc_content').value,kind:$('#sc_kind').value});
+    if(d.error){banner(d.error,'ko');return} sid=_scEditId=d.id; $('#sc_editing').textContent='édition : '+(d.path||''); loadScriptsView(); }
+  else await jpatch('/scripts/'+sid,{content:$('#sc_content').value,language:$('#sc_lang').value});
+  $('#sc_out').innerHTML='<span class="muted">exécution…</span>';
+  const r=await jpost('/scripts/'+sid+'/run',{args});
+  $('#sc_out').innerHTML=(r.status==='done')
+    ?'<b>Résultat</b><pre style="font-size:11px;white-space:pre-wrap">'+esc(JSON.stringify(r.result,null,2))+'</pre>'
+    :'<b style="color:#dc2626">Erreur</b><pre style="font-size:11px;white-space:pre-wrap">'+esc(r.error||'')+'</pre>';
+}
 async function loadFlows(){
   const d=await jget('/flows'); const fs=d.flows||[];
+  window._flowsCache=fs;
+  try{ if(!window._scripts2) await loadScriptsView(); }catch(e){}
   const sel=$('#flow_select');
   if(sel) sel.innerHTML='<option value="">— choisir un flow —</option>'+fs.map(f=>`<option value="${f.id}" ${currentFlow&&currentFlow.id===f.id?'selected':''}>${esc(f.name)}</option>`).join('');
 }
@@ -1308,12 +1411,57 @@ async function editFlowAI(){
   banner('Modification du flow par IA…','ok');
   const d=await jpost('/flows/'+currentFlow.id+'/edit-ai',{instruction:ins.trim()});
   if(d.error){banner(d.error,'ko');return}
-  currentFlow=d; flowPath=[]; selNode=null; renderFlow(); renderTriggers();
+  currentFlow=projectFlow(d); flowPath=[]; selNode=null; renderFlow(); renderTriggers();
   banner('Flow modifié ✓ — vérifie le résultat avant d\'exécuter.','ok');
+}
+// ── Projection OpenFlow (stockage natif) → vue plate de l'éditeur ──
+function ofDown(m){
+  const v=m.value||{}; const t=v.type;
+  const out={id:m.id, summary:m.summary||t};
+  const adv=(src,dst)=>{ const r=src.retry||{};
+    if(r.constant&&r.constant.attempts) dst.retry={attempts:r.constant.attempts,delay_s:r.constant.seconds||0,mode:'constant'};
+    else if(r.exponential&&r.exponential.attempts) dst.retry={attempts:r.exponential.attempts,delay_s:r.exponential.seconds||1,mode:'exponential'};
+    else if(r.attempts) dst.retry=r; else dst.retry={attempts:0,delay_s:2,mode:'constant'};
+    dst.timeout_s=(src.timeout&&src.timeout.value)||src.timeout_s||0;
+    dst.cache_ttl=src.cache_ttl||0;
+    dst.mock={enabled:!!(src.mock&&src.mock.enabled),value:(src.mock&&(src.mock.return_value!==undefined?src.mock.return_value:src.mock.value))||''};
+    dst.stop_after_if={enabled:!!(src.stop_after_if&&src.stop_after_if.expr),expr:(src.stop_after_if||{}).expr||''};
+    dst.skip_if={enabled:!!(src.skip_if&&src.skip_if.expr),expr:(src.skip_if||{}).expr||''};
+    dst.sleep_s=(src.sleep&&src.sleep.value)||src.sleep_s||0;
+    dst.continue_on_error=!!src.continue_on_error;
+    dst.early_return={enabled:false,expr:''}; };
+  adv(m,out);
+  const tv=x=>x&&x.type==='javascript'?('{{ '+(x.expr||'')+' }}'):(x&&x.type==='static'?x.value:x);
+  const tfs={}; Object.entries(v.input_transforms||{}).forEach(([k,x])=>tfs[k]=tv(x));
+  const HUB={'hub/elytras/http_request':'http','hub/elytras/send_email':'email','hub/elytras/sql_query':'sql','hub/elytras/poll_dedup':'trigger'};
+  if(t==='rawscript'){ out.type='code'; out.language={python3:'python',bun:'javascript',deno:'typescript'}[v.language]||v.language; out.content=v.content||''; }
+  else if(t==='script'&&HUB[v.path]){ out.type=HUB[v.path];
+    if(out.type==='trigger'){ out.content=tfs.code||''; out.language=tfs.language||'python'; out.key=tfs.key||''; }
+    else Object.assign(out,tfs);
+    if(out.type==='http'){ out.method=out.method||'GET'; out.headers=out.headers||{}; out.timeout_s_http=out.timeout_s||15; } }
+  else if(t==='script'){ out.type='script'; out.path=v.path||''; out.args=tfs; }
+  else if(t==='flow'){ out.type='subflow'; out.flow=v.path||''; out.args=tfs; }
+  else if(t==='aiagent'){ out.type='agent'; out.agent_id=v.agent_id||'orchestrateur'; out.prompt=tfs.user_message||''; out.memory=v.memory||'flow'; }
+  else if(t==='mcptool'){ out.type='tool'; out.server_id=v.server_id||''; out.tool=v.tool||''; out.args=tfs; }
+  else if(t==='identity'&&m.suspend){ out.type='approval'; out.message=(m.suspend||{}).message||'Validation requise pour continuer.'; }
+  else if(t==='identity'&&m.mock&&m.mock.enabled){ out.type='note'; out.text=m.mock.return_value!==undefined?m.mock.return_value:(m.mock.value||''); out.mock={enabled:false,value:''}; }
+  else if(t==='identity'){ out.type='identity'; }
+  else if(t==='forloopflow'){ out.type='forloop'; out.iterator=(v.iterator&&v.iterator.expr)||''; out.parallel=!!v.parallel; out.modules=(v.modules||[]).map(ofDown); }
+  else if(t==='whileloopflow'){ out.type='whileloop'; out.condition=v.condition||''; out.max_iter=v.max_iter||100; out.modules=(v.modules||[]).map(ofDown); }
+  else if(t==='branchone'){ out.type='branchone'; out.branches=(v.branches||[]).map(b=>({summary:b.summary,expr:b.expr,modules:(b.modules||[]).map(ofDown)})); out.default_modules=(v.default||[]).map(ofDown); }
+  else if(t==='branchall'){ out.type='branchall'; out.parallel=!!v.parallel; out.branches=(v.branches||[]).map(b=>({summary:b.summary,modules:(b.modules||[]).map(ofDown)})); }
+  else { out.type='note'; out.text=m.summary||''; }
+  return out;
+}
+function projectFlow(f){
+  if(f&&f.value&&f.value.modules){ f.modules=f.value.modules.map(ofDown);
+    const fm=f.value.failure_module; f.on_error=fm?[ofDown(fm)]:[];
+    (f.value.notes||[]).forEach(n=>{ f.modules.push({id:n.id,type:'note',summary:'note',text:n.text}); if(n.position&&f.ui&&f.ui.pos)f.ui.pos[n.id]=n.position; }); }
+  return f;
 }
 async function openFlow(fid){
   if(!fid){currentFlow=null; renderFlow(); renderTriggers(); return}
-  currentFlow=await jget('/flows/'+fid); flowPath=[]; selNode=null; lastResults={}; flowPanel=null;
+  currentFlow=projectFlow(await jget('/flows/'+fid)); flowPath=[]; selNode=null; lastResults={}; flowPanel=null;
   viewT={x:30,y:24,k:1};   // réinitialise le pan/zoom à l'ouverture d'un flow
   if($('#flow_select')) $('#flow_select').value=fid;
   renderFlow(); renderTriggers(); setTimeout(fitFlow,0);
@@ -1379,7 +1527,7 @@ function renderFlow(){
     return;
   }
   const mods=levelModules();
-  const palette=['agent','tool','code','note','http','email','sql','trigger','forloop','whileloop','branchone','branchall']
+  const palette=['agent','tool','code','script','subflow','note','http','email','sql','trigger','forloop','whileloop','branchone','branchall','identity']
     .map(t=>`<button class="ghost sm" style="padding:4px 8px" onclick="addModule('${t}')">+ ${TYPE_META[t].icon} ${TYPE_META[t].label}</button>`).join('');
   // — barre d'outils (haut de page) : nom + actions du flow courant —
   if(acts) acts.innerHTML=`
@@ -1387,7 +1535,8 @@ function renderFlow(){
      <button onclick="saveFlow()">💾 Enregistrer</button>
      <button class="ghost sm" onclick="editFlowAI()" title="Décris une modification, l'IA l'applique">✨ Modifier (IA)</button>
      <button class="ghost sm" onclick="toggleFlowPanel('inputs')">⌨ Entrées (${(f.inputs||[]).length})</button>
-     <button class="ghost sm" onclick="flowTab('triggers')" title="Webhook & planification">⚡ Déclencheurs</button>
+     <button class="ghost sm" onclick="flowTab('triggers')" title="Webhook, routes HTTP, email, planification">⚡ Déclencheurs</button>
+     <button class="ghost sm" onclick="exportOpenflow()" title="Export au format OpenFlow (Hub Windmill)">⇩ OpenFlow</button>
      <button onclick="runFlowUI(false)">▶ Exécuter</button>
      <span class="grow"></span>
      <a href="#" style="color:#dc2626" onclick="deleteFlow();return false">supprimer</a>`;
@@ -1612,6 +1761,9 @@ function addModule(t,at){
   else if(t==='whileloop')Object.assign(m,{condition:'',max_iter:100,modules:[]});
   else if(t==='branchone')Object.assign(m,{branches:[{summary:'branche 1',expr:'',modules:[]}],default_modules:[]});
   else if(t==='branchall')Object.assign(m,{branches:[{summary:'branche 1',modules:[]}],parallel:false});
+  else if(t==='script')Object.assign(m,{path:'',args:{}});
+  else if(t==='subflow')Object.assign(m,{flow:'',args:{}});
+  else if(t==='identity')Object.assign(m,{});
   else if(t==='approval')Object.assign(m,{message:'Validation requise pour continuer.',approvers:[]});
   const mods=levelModules();
   const pos=(at==null||at>mods.length)?mods.length:Math.max(0,at);
@@ -1700,14 +1852,28 @@ function typeFields(m){
     return `<select onchange="mEdit('server_id',this.value)" style="${SELST};width:100%"><option value="">— serveur MCP —</option>${srvs}</select>
       <input onchange="mEdit('tool',this.value)" value="${esc(m.tool||'')}" placeholder="nom de l'outil" style="margin-top:6px;width:100%">
       <textarea rows="3" class="tmpl" onchange="mEditJSON('args',this.value)" placeholder='args JSON — {"q":"{{ flow_input.x }}"}' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.args||{},null,1))}</textarea>`; }
-  if(m.type==='code'){ const L=m.language||'python';
-    return `<select onchange="mEditLang(this.value)" style="${SELST};margin-bottom:6px;max-width:200px">
-        <option value="python" ${L==='python'?'selected':''}>🐍 Python</option>
-        <option value="javascript" ${L==='javascript'?'selected':''}>🟨 JavaScript</option>
-        <option value="typescript" ${L==='typescript'?'selected':''}>🔷 TypeScript</option>
-      </select>
+  if(m.type==='code'){ const L=m.language||'python'; const av=window._langs||{};
+    const order=['python','javascript','typescript','bash','go','php','ruby','rust','java','powershell','nu','csharp','rlang','graphql','postgresql','mysql','duckdb'];
+    const keyOf=l=>({python:'python3',javascript:'bun',typescript:'deno'}[l]||l);
+    const opts=order.map(l=>{const lm=LANG_META[l]||{icon:'',label:l}; const ok=av[keyOf(l)];
+      return `<option value="${l}" ${L===l?'selected':''}>${lm.icon} ${lm.label}${ok===false?' (toolchain absente)':''}</option>`;}).join('');
+    return `<select onchange="mEditLang(this.value)" style="${SELST};margin-bottom:6px;max-width:240px">${opts}</select>
       <textarea rows="7" class="pycode" onchange="mEdit('content',this.value)" spellcheck="false" style="width:100%;font-family:ui-monospace,monospace;font-size:11.5px">${esc(m.content||'')}</textarea>
       <div class="sm muted" style="margin-top:3px">Définis <code>result</code> (ou une fonction <code>main()</code>). Dispo : <code>flow_input</code>, <code>results</code>, <code>item</code>, <code>index</code>, <code>input_dir</code>, <code>output_dir</code>. Sous-processus isolé (réseau coupé, FS lecture seule).</div>`; }
+  if(m.type==='script'){ const sc=(window._scripts2||[]);
+    const opts=sc.map(x=>`<option value="${esc(x.path)}" ${m.path===x.path?'selected':''}>${esc(x.summary||x.path)} (${esc(x.language||'')})</option>`).join('');
+    const cur=sc.find(x=>x.path===m.path);
+    const schema=cur&&cur.schema&&cur.schema.properties?Object.keys(cur.schema.properties).join(', '):'';
+    return `<select onchange="mEdit('path',this.value);renderInspector()" style="${SELST};width:100%"><option value="">— script de la bibliothèque —</option>${opts}</select>
+      <textarea rows="3" class="tmpl" onchange="mEditJSON('args',this.value)" placeholder='args JSON — {"url":"{{ flow_input.x }}"}' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.args||{},null,1))}</textarea>
+      ${schema?`<div class="sm muted" style="margin-top:3px">Entrées attendues : <code>${esc(schema)}</code></div>`:''}
+      <div class="sm muted" style="margin-top:3px">Un script = une action réutilisable (vue <b>Scripts</b> pour en créer/tester).</div>`; }
+  if(m.type==='subflow'){ const fl=(window._flowsCache||[]).filter(x=>!currentFlow||x.id!==currentFlow.id);
+    const opts=fl.map(x=>`<option value="${x.id}" ${m.flow===x.id?'selected':''}>${esc(x.name)}</option>`).join('');
+    return `<select onchange="mEdit('flow',this.value)" style="${SELST};width:100%"><option value="">— flow à appeler —</option>${opts}</select>
+      <textarea rows="3" class="tmpl" onchange="mEditJSON('args',this.value)" placeholder='entrées du sous-flow (JSON)' style="margin-top:6px;width:100%">${esc(JSON.stringify(m.args||{},null,1))}</textarea>
+      <div class="sm muted" style="margin-top:3px">Appelle un autre flow et renvoie son résultat (profondeur max 5, cycles refusés).</div>`; }
+  if(m.type==='identity') return `<div class="sm muted">Étape « identity » : transmet le résultat de l'étape précédente tel quel (utile pour structurer/déboguer).</div>`;
   if(m.type==='note') return `<textarea rows="3" class="tmpl" onchange="mEdit('text',this.value)" placeholder="note / jalon — réf {{ results.id }}" style="width:100%">${esc(m.text||'')}</textarea>`;
   if(m.type==='http'){ const MM=m.method||'GET';
     return `<select onchange="mEdit('method',this.value)" style="${SELST};margin-bottom:6px;max-width:130px">
@@ -1833,7 +1999,26 @@ function renderTriggers(){
       <div style="margin-top:8px"><button class="ghost sm" onclick="scheduleFlow()">planifier ce flow…</button></div>
       <div class="sm muted" style="margin-top:6px">Crée une tâche planifiée (quotidienne ou cron) liée à ce flow. Retrouve et gère les planifications dans la section <b>Planificateur</b>.</div>
     </div>
+    <div class="panel" style="padding:16px;margin-bottom:14px" id="flow_trig_list">
+      <b>🛣 Routes HTTP &amp; 📧 Email</b>
+      <div id="trig_rows" class="sm" style="margin-top:8px"><span class="muted">chargement…</span></div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select id="trig_method" style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px;font-size:12px">
+          ${['POST','GET','PUT','PATCH','DELETE'].map(x=>`<option>${x}</option>`).join('')}</select>
+        <input id="trig_path" placeholder="chemin (ex : garage/devis)" style="max-width:200px">
+        <button class="ghost sm" onclick="addHttpTrigger()">+ Route HTTP</button>
+      </div>
+      <div class="sm muted" style="margin-top:4px">La route répond sur <code>${location.origin}/r/&lt;chemin&gt;</code> — corps JSON + query → <code>flow_input</code>.</div>
+      <div style="margin-top:10px;display:grid;gap:5px;max-width:430px;border-top:1px dashed var(--line);padding-top:8px">
+        <div style="display:flex;gap:5px"><input id="trig_ehost" placeholder="IMAP host (ex : imap.gmail.com)" style="flex:1"><input id="trig_eport" placeholder="993" style="max-width:70px"></div>
+        <div style="display:flex;gap:5px"><input id="trig_euser" placeholder="email / login" style="flex:1"><input id="trig_epass" type="password" placeholder="mot de passe (app)" style="flex:1"></div>
+        <div style="display:flex;gap:5px;align-items:center"><input id="trig_efolder" placeholder="dossier (INBOX)" style="max-width:140px"><input id="trig_epoll" placeholder="intervalle s (120)" style="max-width:140px">
+        <button class="ghost sm" onclick="addEmailTrigger()">+ Trigger email</button></div>
+        <div class="sm muted">Chaque nouveau mail (non lu, dédup Message-ID) lance le flow avec <code>{from, subject, text}</code>.</div>
+      </div>
+    </div>
     ${onErrorPanel()}`;
+  loadFlowTriggers();
 }
 // — encart « Gestionnaire d'erreurs » (modules on_error du flow) —
 function onErrorPanel(){
@@ -1917,6 +2102,48 @@ async function runFlowUI(useUpto){
 async function saveFlow(){
   await jpatch('/flows/'+currentFlow.id,{name:currentFlow.name,summary:currentFlow.summary,inputs:currentFlow.inputs,modules:currentFlow.modules,on_error:currentFlow.on_error||[],ui:currentFlow.ui});
   banner('Flow enregistré.','ok'); loadFlows();
+}
+// ── Triggers (routes HTTP / email) ──
+async function loadFlowTriggers(){
+  const el=$('#trig_rows'); if(!el||!currentFlow)return;
+  const d=await jget('/triggers?flow_id='+currentFlow.id); const ts=d.triggers||[];
+  el.innerHTML=ts.map(t=>{
+    const c=t.config||{}; let lbl='';
+    if(t.kind==='http') lbl=`<code>${esc(c.method||'POST')} /r/${esc(c.route_path||'')}</code>`;
+    else if(t.kind==='email') lbl=`📧 <code>${esc(c.user||'')}</code> @ ${esc(c.host||'')} (${esc(String(c.poll_s||120))}s)`;
+    else lbl=esc(t.kind)+(t.active===false?' <span class="pill" style="color:#b45309">inactif (broker requis)</span>':'');
+    return `<div class="row"><span>${lbl}</span><span class="det">${t.enabled?'actif':'désactivé'} · <a href="#" style="color:#dc2626" onclick="delTrigger('${t.id}');return false">suppr</a></span></div>`;
+  }).join('')||'<span class="muted">Aucune route/email pour ce flow.</span>';
+}
+async function addHttpTrigger(){
+  const path=$('#trig_path').value.trim(); if(!path){banner('Chemin requis.','ko');return}
+  const d=await jpost('/triggers',{kind:'http',target:{flow_id:currentFlow.id},config:{method:$('#trig_method').value,route_path:path}});
+  if(d.error){banner(d.error,'ko');return} $('#trig_path').value=''; banner('Route créée : /r/'+path,'ok'); loadFlowTriggers();
+}
+async function addEmailTrigger(){
+  const host=$('#trig_ehost').value.trim(); if(!host){banner('Host IMAP requis.','ko');return}
+  const cfg={host,port:parseInt($('#trig_eport').value)||993,user:$('#trig_euser').value.trim(),
+    password:$('#trig_epass').value,folder:$('#trig_efolder').value.trim()||'INBOX',poll_s:parseInt($('#trig_epoll').value)||120};
+  const d=await jpost('/triggers',{kind:'email',target:{flow_id:currentFlow.id},config:cfg});
+  if(d.error){banner(d.error,'ko');return} $('#trig_epass').value=''; banner('Trigger email créé.','ok'); loadFlowTriggers();
+}
+async function delTrigger(id){ await jdel('/triggers/'+id); loadFlowTriggers(); }
+// ── Import / export OpenFlow (interop Hub Windmill) ──
+async function exportOpenflow(){
+  if(!currentFlow)return; await saveFlow();
+  const d=await jget('/flows/'+currentFlow.id+'/openflow');
+  const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(currentFlow.name||'flow').replace(/[^a-z0-9]+/gi,'_')+'.openflow.json'; a.click();
+  banner('Export OpenFlow téléchargé.','ok');
+}
+async function importOpenflow(){
+  const txt=prompt('Colle ici le JSON OpenFlow (export Elytras ou Hub Windmill → onglet JSON) :','');
+  if(!txt)return;
+  let data; try{data=JSON.parse(txt)}catch(e){banner('JSON invalide.','ko');return}
+  const d=await jpost('/flows/import-openflow',{openflow:data, scope:(currentSession&&currentSession.scope)||'perso', project_id:(currentSession&&currentSession.project_id)||null});
+  if(d.error){banner(d.error,'ko');return}
+  await loadFlows(); openFlow(d.id); banner('Flow importé depuis OpenFlow ✓','ok');
 }
 async function deleteFlow(){ if(!confirm('Supprimer ce flow ?'))return; await jdel('/flows/'+currentFlow.id); currentFlow=null; flowPath=[]; selNode=null; if($('#flow_select'))$('#flow_select').value=''; renderFlow(); renderTriggers(); loadFlows(); }
 

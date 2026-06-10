@@ -35,8 +35,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import (agents, crypto, filestore, files, flows, memory_engine, policy, provider_auth, providers,
-               rbac, registry, scheduler, sessions, skills)
+from . import (agents, crypto, exprs, filestore, files, flow_engine, flows, memory_engine, policy,
+               provider_auth, providers, rbac, registry, runners, scheduler, sessions, skills, triggers)
+from . import scripts as scripts_lib
 from .mcp_client import McpClient
 from .mcp_oauth import McpOAuth
 from .memory import FileMemoryStore, MemoryStore
@@ -1423,286 +1424,27 @@ def list_tasks(user_id, project_ids, k=100):
 # référencement par expressions sur flow_input/results/item/index, config avancée par module
 # (retry, timeout, cache, mock, early-stop, skip, sleep), et suspension/reprise pour l'approbation.
 
-class _Dot(dict):
-    """Dict accessible aussi par attribut (results.maStep, item.nom…) ; clé absente → ''."""
-    def __getattr__(self, k):
-        try:
-            return self[k]
-        except KeyError:
-            return ""
+# ───────────────────────── Flows : moteur OpenFlow (voir flow_engine.py) ─────────────────────────
+# La refonte Windmill a déplacé les briques : primitives d'expressions → exprs.py ;
+# runners multi-langages sandboxés → runners.py ; bibliothèque de scripts → scripts_lib ;
+# moteur d'exécution OpenFlow → flow_engine.py ; déclencheurs → triggers.py.
+# Ici : les HOOKS (agents, MCP, builtins http/email/sql/poll, audit), la gestion de
+# tâche + approbations (suspend/resume), et l'API run_flow / resume_flow.
 
-    def __setattr__(self, k, v):
-        self[k] = v
-
-
-def _wrap(x):
-    if isinstance(x, dict):
-        return _Dot({k: _wrap(v) for k, v in x.items()})
-    if isinstance(x, list):
-        return [_wrap(v) for v in x]
-    return x
-
-
-def _plain(x):
-    try:
-        return json.loads(json.dumps(x, default=str)) if x is not None else None
-    except Exception:
-        return str(x)
-
-
-_SAFE_BUILTINS = {"len": len, "range": range, "str": str, "int": int, "float": float, "bool": bool,
-                  "min": min, "max": max, "sum": sum, "sorted": sorted, "abs": abs, "round": round,
-                  "any": any, "all": all, "list": list, "dict": dict, "set": set, "tuple": tuple,
-                  "enumerate": enumerate, "zip": zip, "map": map, "filter": filter, "reversed": reversed,
-                  "True": True, "False": False, "None": None}
-
-
-def _eval(expr, ns):
-    """Évalue une expression Python sur un namespace restreint (sans builtins dangereux)."""
-    if expr is None or str(expr).strip() == "":
-        return None
-    try:
-        return eval(expr, {"__builtins__": {}}, {**_SAFE_BUILTINS, **ns})  # noqa: S307 (namespace restreint)
-    except Exception as e:
-        raise ValueError(f"expression invalide « {expr} » : {e}")
-
-
-def _render(tpl, ns):
-    """Interpole {{ expr }} dans une chaîne. Repli sur l'accès par points (rétro-compat)."""
-    if not isinstance(tpl, str):
-        return tpl
-
-    def sub(mm):
-        expr = mm.group(1).strip()
-        try:
-            v = _eval(expr, ns)
-        except Exception:
-            cur = ns
-            for p in expr.split("."):
-                cur = cur.get(p, "") if isinstance(cur, dict) else getattr(cur, p, "")
-            v = cur
-        if v is None:
-            return ""
-        return v if isinstance(v, str) else json.dumps(v, ensure_ascii=False, default=str) if isinstance(v, (dict, list)) else str(v)
-    return re.sub(r"\{\{\s*([^}]+?)\s*\}\}", sub, tpl)
-
-
-def _short(v):
-    s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False, default=str)
-    return s[:2000]
-
-
-class _StopFlow(Exception):
-    def __init__(self, value):
-        self.value = value
-
-
-class _Suspend(Exception):
-    def __init__(self, payload):
-        self.payload = payload
-
-
-def _with_retry(fn, retry):
-    retry = retry or {}
-    attempts = max(1, int(retry.get("attempts") or 0) + 1)
-    delay = float(retry.get("delay_s") or 0)
-    mode = retry.get("mode", "constant")
-    last = None
-    for i in range(attempts):
-        try:
-            return fn()
-        except (_StopFlow, _Suspend):            # signaux de contrôle : ne pas retenter
-            raise
-        except Exception as e:  # noqa: BLE001
-            last = e
-            if i < attempts - 1 and delay:
-                time.sleep(delay * (2 ** i if mode == "exponential" else 1))
-    raise last
-
-
-def _with_timeout(fn, t):
-    t = float(t or 0)
-    if t <= 0:
-        return fn()
-    box = {}
-
-    def run():
-        try:
-            box["r"] = fn()
-        except Exception as e:  # noqa: BLE001
-            box["e"] = e
-    th = threading.Thread(target=run, daemon=True)
-    th.start()
-    th.join(t)
-    if th.is_alive():
-        raise TimeoutError(f"délai dépassé ({t:g}s)")
-    if "e" in box:
-        raise box["e"]
-    return box.get("r")
-
-
-# Bac à sable du code : auto = utilise sandbox-exec (macOS) / bwrap (Linux) si dispo ;
-# on = exige un bac à sable (échoue sinon) ; off = sous-processus nu.
-_SANDBOX_MODE = os.environ.get("ELYTRAS_CODE_SANDBOX", "auto").lower()
-
-
-def _sandbox_cmd(base_cmd, script_path, work=None):
-    """Enveloppe la commande dans un bac à sable (FS lecture seule + réseau coupé).
-
-    `work` (si fourni) est monté en lecture-écriture (dossiers in/ et out/ des fichiers).
-    Renvoie (cmd, sandboxed). Repli gracieux si aucun outil dispo (sauf mode 'on').
-    """
-    if _SANDBOX_MODE == "off":
-        return base_cmd, False
-    if sys.platform == "darwin" and shutil.which("sandbox-exec"):
-        profile = ('(version 1)(deny default)(allow process*)(allow sysctl-read)(allow mach-lookup)'
-                   '(allow file-read*)'
-                   '(allow file-write* (subpath "/tmp")(subpath "/private/tmp")'
-                   '(subpath "/var/folders")(subpath "/private/var/folders"))'
-                   '(deny network*)')
-        return ["sandbox-exec", "-p", profile] + base_cmd, True
-    if sys.platform.startswith("linux") and shutil.which("bwrap"):
-        cmd = ["bwrap", "--ro-bind", "/", "/"]
-        if work:
-            cmd += ["--bind", work, work]          # dossier de travail accessible en écriture
-        else:
-            cmd += ["--tmpfs", "/tmp", "--ro-bind", script_path, script_path]
-        cmd += ["--proc", "/proc", "--dev", "/dev", "--unshare-net", "--die-with-parent", "--"]
-        return cmd + base_cmd, True
-    if _SANDBOX_MODE == "on":
-        raise RuntimeError("bac à sable exigé (ELYTRAS_CODE_SANDBOX=on) mais ni sandbox-exec ni bwrap trouvés")
-    return base_cmd, False
-
-
-_PY_HARNESS = (
-    "import json as _j, sys as _s\n"
-    "class _D(dict):\n"
-    "    def __getattr__(self, k):\n"
-    "        try: return self[k]\n"
-    "        except KeyError: return None\n"
-    "def _w(x):\n"
-    "    if isinstance(x, dict): return _D({k: _w(v) for k, v in x.items()})\n"
-    "    if isinstance(x, list): return [_w(v) for v in x]\n"
-    "    return x\n"
-    "_ctx=_j.loads(_s.stdin.read())\n"
-    "flow_input=_w(_ctx['flow_input'])\nresults=_w(_ctx['results'])\nitem=_w(_ctx.get('item'))\nindex=_ctx.get('index')\n"
-    "input_dir=_ctx.get('input_dir')\noutput_dir=_ctx.get('output_dir')\n"
-    "result=None\n"
-    "# ───── code utilisateur ─────\n{CODE}\n# ───── fin ─────\n"
-    "_out=main() if ('main' in dir() and callable(main)) else result\n"
-    "_s.stdout.write('\\x1e'+_j.dumps(_out, default=str))\n")
-
-_JS_HARNESS = (
-    "const _ctx=JSON.parse(process.env.ELYTRAS_CTX||'{}');\n"
-    "const {flow_input, results, item, index, input_dir, output_dir}=_ctx;\n"
-    "// ───── code utilisateur ─────\n{CODE}\n// ───── fin ─────\n"
-    "(async()=>{let _out;"
-    "if(typeof main==='function'){_out=await main();}"
-    "else if(typeof result!=='undefined'){_out=result;}else{_out=null;}"
-    "process.stdout.write('\\x1e'+JSON.stringify(_out===undefined?null:_out));"
-    "})().catch(e=>{console.error(e&&e.stack||String(e));process.exit(1);});\n")
+_Dot, _wrap, _plain = exprs.Dot, exprs.wrap, exprs.plain
+_eval, _render, _short = exprs.eval_expr, exprs.render, exprs.short
+_StopFlow, _Suspend = exprs.StopFlow, exprs.Suspend
+_sandbox_status = runners.sandbox_status
 
 
 def _run_code(content, ns, timeout_s, meta=None, language="python"):
-    """Exécute un bloc de code (Python / JavaScript / TypeScript) dans un sous-processus
-    isolé (réseau coupé, FS lecture seule sauf dossier de travail). Contexte exposé :
-    flow_input, results, item, index, **input_dir** (fichiers d'entrée, lecture) et
-    **output_dir** (y écrire = sortie fichier du flow). Renvoie via `result = …` ou un `main()`.
-    """
-    lang = (language or "python").lower()
-    work = tempfile.mkdtemp(prefix="elytras_")
-    indir, outdir = os.path.join(work, "in"), os.path.join(work, "out")
-    os.makedirs(indir)
-    os.makedirs(outdir)
-    for fname, frec in ((meta or {}).get("files") or {}).items():     # matérialise les fichiers d'entrée
-        try:
-            raw = files.raw_bytes(frec)
-            with open(os.path.join(indir, os.path.basename(frec.get("name") or fname)), "wb") as fh:
-                fh.write(raw)
-        except Exception:
-            pass
-    payload = json.dumps({"flow_input": _plain(ns.get("flow_input")), "results": _plain(ns.get("results")),
-                          "item": _plain(ns.get("item")), "index": ns.get("index"),
-                          "input_dir": indir, "output_dir": outdir}, default=str)
-    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": os.environ.get("HOME", "/tmp"),
-           "LANG": os.environ.get("LANG", "C.UTF-8")}
-    stdin_data = ""
-    if lang in ("javascript", "js", "typescript", "ts"):
-        ext = "ts" if lang in ("typescript", "ts") else "js"
-        path = os.path.join(work, "_run." + ext)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(_JS_HARNESS.replace("{CODE}", content or ""))
-        env["ELYTRAS_CTX"] = payload                              # contexte via variable d'env (JS/TS)
-        base = ["node"] + (["--experimental-strip-types"] if ext == "ts" else []) + [path]
-    else:
-        path = os.path.join(work, "_run.py")
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(_PY_HARNESS.replace("{CODE}", content or ""))
-        stdin_data = payload                                      # contexte via stdin (Python)
-        base = [sys.executable, "-I", path]
-    try:
-        cmd, _sb = _sandbox_cmd(base, path, work)
-        p = subprocess.run(cmd, input=stdin_data, capture_output=True, text=True,
-                           timeout=float(timeout_s or 30), env=env)
-        rc, stdout, stderr = p.returncode, p.stdout, p.stderr
-        if _sb and rc != 0 and _SANDBOX_MODE != "on" and ("bwrap:" in (stderr or "") or "namespace" in (stderr or "")):
-            p = subprocess.run(base, input=stdin_data, capture_output=True, text=True,   # repli si le bac à sable ne peut pas créer de namespace (ex. Docker non privilégié)
-                               timeout=float(timeout_s or 30), env=env)
-            rc, stdout, stderr = p.returncode, p.stdout, p.stderr
-        # Sauvegarde des fichiers produits dans out/ → espace scopé (sortie fichier du flow)
-        if meta is not None and "out_scope" in meta:
-            for fn in sorted(os.listdir(outdir)):
-                fp = os.path.join(outdir, fn)
-                if os.path.isfile(fp) and os.path.getsize(fp) <= files.MAX_BYTES:
-                    b64 = base64.b64encode(open(fp, "rb").read()).decode()
-                    files.add_file(meta["out_scope"], meta.get("out_owner"), meta.get("out_project"), fn, b64)
-                    meta.setdefault("files_out", []).append(fn)
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
-    if rc != 0:
-        raise RuntimeError((stderr or "erreur d'exécution du code").strip()[:600])
-    if "\x1e" in stdout:
-        _, _, tail = stdout.rpartition("\x1e")
-        try:
-            return json.loads(tail)
-        except Exception:
-            return tail.strip()
-    return stdout.strip()
+    """Compat héritée : exécute un bloc de code dans le runner sandboxé (multi-langage)."""
+    return runners.run(content, language, {}, ns, timeout_s, meta, files_mod=files)
 
 
-_SB_STATUS = None
-
-
-def _sandbox_status():
-    """Auto-test RÉEL du bac à sable du code : exécution + tentative réseau (doit être coupée).
-    Résultat mis en cache. Permet de vérifier que l'isolation est active (y compris en conteneur)."""
-    global _SB_STATUS
-    if _SB_STATUS is not None:
-        return _SB_STATUS
-    _c, sb = _sandbox_cmd([sys.executable, "-c", "pass"], "/x", None)
-    detail = "?"
-    try:
-        ns = {"flow_input": {}, "results": {}, "item": None, "index": None}
-        detail = _run_code("import socket\n"
-                           "try:\n"
-                           "    socket.create_connection(('1.1.1.1', 53), timeout=2)\n"
-                           "    result = 'open'\n"
-                           "except Exception:\n"
-                           "    result = 'blocked'\n", ns, 8)
-    except Exception as e:                      # mode 'on' sans bac à sable disponible → refus
-        detail = "refus:" + str(e)[:100]
-    _SB_STATUS = {"active": bool(sb), "network_blocked": detail == "blocked",
-                  "detail": detail, "mode": _SANDBOX_MODE}
-    return _SB_STATUS
-
-
-def _cache_key(meta, m, ns):
-    raw = f"{meta.get('fid')}:{m.get('id')}:{json.dumps(_plain(ns.get('flow_input')), sort_keys=True, default=str)}"
-    return hashlib.sha1(raw.encode()).hexdigest()
-
-
+# ── Builtins hub/elytras (actions toutes faites, en-process, gardées par caps) ──
 def _http_action(m, ns, meta):
-    """Étape http « toute faite » : requête HTTP protégée (anti-SSRF), templating, taille plafonnée."""
+    """Requête HTTP protégée (anti-SSRF, redirections revalidées, taille plafonnée)."""
     if not rbac.has_cap(meta["user_id"], "web.browse"):
         raise PermissionError("requête HTTP non autorisée pour cet utilisateur (capacité web.browse requise)")
     from urllib.parse import urlparse
@@ -1715,10 +1457,8 @@ def _http_action(m, ns, meta):
     body = m.get("body")
     if isinstance(body, str):
         body = _render(body, ns)
-    timeout = float(m.get("timeout_s_http") or m.get("timeout_s") or 15)
+    timeout = float(m.get("timeout_s") or 15)
     max_bytes = 2_000_000
-    _audit("http", agent=m.get("summary") or "http", detail=f"{method} {urlparse(url).hostname or ''}",
-           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
     cur = (url or "").strip()
     kwargs = {}
     if body not in (None, ""):
@@ -1728,7 +1468,7 @@ def _http_action(m, ns, meta):
             kwargs["content"] = str(body)
     try:
         r = None
-        for _ in range(5):                       # suit les redirections en revalidant chaque hôte (anti-SSRF)
+        for _ in range(5):                       # suit les redirections en revalidant chaque hôte
             u = urlparse(cur)
             if u.scheme not in ("http", "https"):
                 return {"error": "schéma non autorisé (http/https uniquement)"}
@@ -1737,7 +1477,7 @@ def _http_action(m, ns, meta):
             r = httpx.request(method, cur, follow_redirects=False, timeout=timeout, headers=headers, **kwargs)
             if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
                 cur = str(httpx.URL(str(r.url)).join(r.headers["location"]))
-                kwargs.pop("json", None)         # une redirection 303/GET ne re-poste pas le corps
+                kwargs.pop("json", None)
                 kwargs.pop("content", None)
                 method = "GET"
                 continue
@@ -1756,7 +1496,7 @@ def _http_action(m, ns, meta):
 
 
 def _email_action(m, ns, meta):
-    """Étape email « toute faite » : envoi SMTP configuré par variables d'env. Aucun secret loggé."""
+    """Envoi d'email via le SMTP configuré (SMTP_HOST/USER/PASS/FROM). Aucun secret loggé."""
     if not rbac.has_cap(meta["user_id"], "dispatch"):
         raise PermissionError("envoi d'email non autorisé pour cet utilisateur (capacité dispatch requise)")
     host = os.environ.get("SMTP_HOST")
@@ -1768,8 +1508,6 @@ def _email_action(m, ns, meta):
     subject = _render(m.get("subject", ""), ns)
     body = _render(m.get("body", ""), ns)
     sender = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER") or ""
-    _audit("email", agent=m.get("summary") or "email", detail=(subject or "")[:60],
-           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
     msg = email.message.EmailMessage()
     msg["From"] = sender
     msg["To"] = to
@@ -1799,7 +1537,7 @@ def _email_action(m, ns, meta):
 
 
 def _sql_action(m, ns, meta):
-    """Étape sql « toute faite » : requête Postgres paramétrée. Le connection_url n'est JAMAIS loggé."""
+    """Requête SQL Postgres paramétrée. Le connection_url n'est JAMAIS loggé."""
     if not rbac.has_cap(meta["user_id"], "code.execute"):
         raise PermissionError("requête SQL non autorisée pour cet utilisateur (capacité code.execute requise)")
     if psycopg is None:
@@ -1815,32 +1553,26 @@ def _sql_action(m, ns, meta):
         params = {k: (_render(v, ns) if isinstance(v, str) else v) for k, v in params.items()}
     elif isinstance(params, (list, tuple)):
         params = [(_render(v, ns) if isinstance(v, str) else v) for v in params]
-    _audit("sql", agent=m.get("summary") or "sql", detail=(query or "")[:60].replace("\n", " "),
-           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
     try:
         with psycopg.connect(conn_url, connect_timeout=10) as conn:
             with conn.cursor() as cur:
                 cur.execute(query, params or None)     # requête PARAMÉTRÉE (pas de concat)
-                if cur.description:                    # SELECT → lignes en dicts (plafond 1000)
+                if cur.description:
                     cols = [c.name for c in cur.description]
                     rows = cur.fetchmany(1000)
                     return [dict(zip(cols, r)) for r in rows]
                 conn.commit()
                 return {"rowcount": cur.rowcount}
     except Exception as e:                       # noqa: BLE001
-        return {"error": str(e)[:200]}           # n'expose jamais le connection_url
+        return {"error": str(e)[:200]}
 
 
-def _trigger_action(m, ns, meta):
-    """Étape trigger : exécute du code qui renvoie une LISTE d'items, déduplique contre l'état stocké,
-    renvoie uniquement les nouveaux. Si aucun nouvel item → stoppe proprement le flow (résultat []).
-    """
+def _poll_dedup_action(m, ns, meta):
+    """Trigger script (kind=trigger Windmill) : code → liste ; dédup persistante ;
+    rien de neuf → arrêt PROPRE du flow (skip)."""
     if not rbac.has_cap(meta["user_id"], "code.execute"):
         raise PermissionError("trigger non autorisé pour cet utilisateur (capacité code.execute requise)")
-    lang = (m.get("language") or "python").lower()
-    _audit("trigger", agent=m.get("summary") or "trigger", detail=lang,
-           user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
-    out = _run_code(m.get("content", ""), ns, m.get("timeout_s"), meta, language=lang)
+    out = runners.run(m.get("code", ""), m.get("language") or "python3", {}, ns, 30, meta, files_mod=files)
     items = out if isinstance(out, list) else ([] if out in (None, "") else [out])
     key = m.get("key") or ""
 
@@ -1849,7 +1581,7 @@ def _trigger_action(m, ns, meta):
             return str(it[key])
         return json.dumps(it, sort_keys=True, default=str, ensure_ascii=False)
 
-    state_key = f"{meta.get('fid', '')}:{m.get('id', '')}"
+    state_key = f"{meta.get('fid', '')}:{meta.get('_mid', '')}"
     seen = set((filestore.items("flow_trigger_state").get(state_key) or {}).get("seen") or [])
     fresh, new_keys = [], []
     for it in items:
@@ -1859,300 +1591,87 @@ def _trigger_action(m, ns, meta):
             new_keys.append(k)
     if new_keys:
         merged = list(seen) + new_keys
-        filestore.put("flow_trigger_state", state_key, {"seen": merged[-5000:]})   # borne l'historique
+        filestore.put("flow_trigger_state", state_key, {"seen": merged[-5000:]})
     if not fresh:
-        raise _StopFlow([])                       # rien de neuf → stoppe le flow proprement (statut done)
+        raise _StopFlow([], skipped=True)         # rien de neuf → flow stoppé proprement
     return fresh
 
 
-def _dispatch_leaf(m, ns, meta):
-    t = m.get("type")
-    if t == "agent":
-        ag = agents.get_agent(m.get("agent_id") or "orchestrateur") or agents.get_agent("orchestrateur")
-        mem = (m.get("memory") or "flow").lower()            # mémoire que CETTE étape rappelle
-        if mem == "perso":
-            a_scope, a_owner, a_proj = "user", (meta.get("mowner") or meta["user_id"]), None
-        elif mem == "projet":
-            a_scope, a_owner, a_proj = "project", None, meta.get("mproj")
-        elif mem == "equipe":                                 # 1re équipe du lanceur (perso d'autrui : jamais)
-            _tids = rbac.user_team_ids(meta["user_id"])
-            a_scope, a_owner, a_proj = ("team", _tids[0], None) if _tids else ("none", None, None)
-        elif mem == "org":
-            a_scope, a_owner, a_proj = "org", None, None      # mémoire d'entreprise (partagée à tous)
-        elif mem == "none":
-            a_scope, a_owner, a_proj = "none", None, None     # aucune mémoire rappelée
-        else:
-            a_scope, a_owner, a_proj = meta["mscope"], meta["mowner"], meta["mproj"]   # mémoire du flow
-        _audit("agent", agent=ag["name"], detail=(m.get("summary") or "")[:60], user_id=meta["mowner"] or meta["user_id"],
-               project_id=meta["mproj"], parent_id=meta["root"])
-        out, _u = run_agent(ag, [{"role": "user", "content": _render(m.get("prompt", ""), ns)}],
-                            a_scope, a_owner, a_proj, meta["user_id"], None,
-                            depth=0, parent_id=meta["root"])
-        return out
-    if t == "tool":
-        srv = registry.get_server(_conn_opt(), m.get("server_id"))
-        args = {k: (_render(v, ns) if isinstance(v, str) else v) for k, v in (m.get("args") or {}).items()}
-        _audit("tool", agent=m.get("summary") or m.get("tool", ""), detail=m.get("tool", ""),
-               user_id=meta["mowner"] or meta["user_id"], project_id=meta["mproj"], parent_id=meta["root"])
-        if not srv:
-            return {"error": "serveur MCP inconnu"}
-        res = mcp.call_tool(_with_token(srv, meta["user_id"]), m.get("tool", ""), args)
-        return res.get("data", res) if isinstance(res, dict) else str(res)
-    if t == "code":
-        if not rbac.has_cap(meta["user_id"], "code.execute"):
-            raise PermissionError("exécution de code non autorisée pour cet utilisateur (capacité code.execute requise)")
-        lang = (m.get("language") or "python").lower()
-        _audit("code", agent=m.get("summary") or "code", detail=lang, user_id=meta["mowner"] or meta["user_id"],
-               project_id=meta["mproj"], parent_id=meta["root"])
-        return _run_code(m.get("content", ""), ns, m.get("timeout_s"), meta, language=lang)
-    if t == "http":
-        return _http_action(m, ns, meta)
-    if t == "email":
-        return _email_action(m, ns, meta)
-    if t == "sql":
-        return _sql_action(m, ns, meta)
-    if t == "trigger":
-        return _trigger_action(m, ns, meta)
-    # note
-    return _render(m.get("text", ""), ns)
-
-
-def _slug(s):
-    return re.sub(r"[^a-z0-9]+", "_", str(s).lower()).strip("_")
-
-
-def _store_result(ns, m, res):
-    rid = m.get("id") or m.get("summary")
-    wrapped = _wrap(res)
-    ns["results"][rid] = wrapped
-    if m.get("summary"):                       # accessible aussi par le nom et par un slug
-        ns["results"][m["summary"]] = wrapped
-        sl = _slug(m["summary"])
-        if sl:
-            ns["results"].setdefault(sl, wrapped)
-    return wrapped
-
-
-def _exec_one(m, ns, meta):
-    """Exécute un module et stocke son résultat dans ns['results']. Retourne (résultat, skipped)."""
-    # skip conditionnel
-    sk = m.get("skip_if") or {}
-    if sk.get("enabled") and bool(_eval(sk.get("expr"), ns)):
-        _store_result(ns, m, None)
-        return None, True
-    # mock / pin result
-    mk = m.get("mock") or {}
-    if mk.get("enabled"):
-        val = mk.get("value")
-        res = _render(val, ns) if isinstance(val, str) else val
-        res = _store_result(ns, m, res)
+# ── HOOKS injectés dans le moteur (pas d'import circulaire) ──
+def _hook_agent(agent_id, prompt, memory, meta):
+    ag = agents.get_agent(agent_id or "orchestrateur") or agents.get_agent("orchestrateur")
+    mem = (memory or "flow").lower()
+    if mem == "perso":
+        a_scope, a_owner, a_proj = "user", (meta.get("mowner") or meta["user_id"]), None
+    elif mem == "projet":
+        a_scope, a_owner, a_proj = "project", None, meta.get("mproj")
+    elif mem == "equipe":                         # 1re équipe du lanceur (perso d'autrui : jamais)
+        _tids = rbac.user_team_ids(meta["user_id"])
+        a_scope, a_owner, a_proj = ("team", _tids[0], None) if _tids else ("none", None, None)
+    elif mem == "org":
+        a_scope, a_owner, a_proj = "org", None, None
+    elif mem == "none":
+        a_scope, a_owner, a_proj = "none", None, None
     else:
-        t = m.get("type")
-        if t == "approval":
-            raise _Suspend({"message": _render(m.get("message", ""), ns), "module": m.get("summary")})
-        if t in flows.CONTAINER_TYPES:
-            res = _store_result(ns, m, _exec_container(m, ns, meta))
-        else:
-            def call():
-                return _dispatch_leaf(m, ns, meta)
-            ttl = int(m.get("cache_ttl") or 0)
-            if ttl > 0:
-                key = _cache_key(meta, m, ns)
-                c = filestore.items("flow_cache").get(key)
-                if c and (time.time() - c.get("ts", 0)) < ttl:
-                    res = _store_result(ns, m, c["value"])
-                else:
-                    out = _with_retry(lambda: _with_timeout(call, m.get("timeout_s")), m.get("retry"))
-                    filestore.put("flow_cache", key, {"value": _plain(out), "ts": time.time()})
-                    res = _store_result(ns, m, out)
-            else:
-                out = _with_retry(lambda: _with_timeout(call, m.get("timeout_s")), m.get("retry"))
-                res = _store_result(ns, m, out)
-    if m.get("sleep_s"):
-        time.sleep(min(float(m.get("sleep_s") or 0), 30))
-    st = m.get("stop_after_if") or {}
-    if st.get("enabled") and bool(_eval(st.get("expr"), ns)):
-        raise _StopFlow(res)
-    er = m.get("early_return") or {}
-    if er.get("enabled"):
-        expr = (er.get("expr") or "").strip()
-        if not expr or bool(_eval(expr, ns)):    # expr vide → toujours ; sinon condition vraie
-            raise _StopFlow(res)
-    return res, False
+        a_scope, a_owner, a_proj = meta["mscope"], meta["mowner"], meta["mproj"]
+    out, _u = run_agent(ag, [{"role": "user", "content": prompt}],
+                        a_scope, a_owner, a_proj, meta["user_id"], None,
+                        depth=0, parent_id=meta.get("root"))
+    return out
 
 
-def _child_ns(ns):
-    """Copie superficielle du namespace avec un dict 'results' indépendant (pour le // )."""
-    c = dict(ns)
-    c["results"] = _Dot(dict(ns.get("results") or {}))
-    c["step"] = c["results"]
-    return c
+def _hook_mcp_tool(server_id, tool, args, meta):
+    srv = registry.get_server(_conn_opt(), server_id)
+    if not srv:
+        return {"error": "serveur MCP inconnu"}
+    res = mcp.call_tool(_with_token(srv, meta["user_id"]), tool, args or {})
+    return res.get("data", res) if isinstance(res, dict) else str(res)
 
 
-def _exec_container(m, ns, meta):
-    t = m.get("type")
-    if t == "forloop":
-        items = _eval(m.get("iterator"), ns)
-        if items is None:
-            items = []
-        if isinstance(items, dict):
-            items = list(items.items())
-        items = list(items)
-        if m.get("parallel") and len(items) > 1:
-            def _one(pair):
-                idx, it = pair
-                cns = _child_ns(ns)
-                cns["item"] = _wrap(it)
-                cns["index"] = idx
-                return idx, _run_modules(m.get("modules") or [], cns, meta)
-            out = [None] * len(items)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(items))) as ex:
-                for idx, val in ex.map(_one, list(enumerate(items))):
-                    out[idx] = val
-            return out
-        results = []
-        saved = (ns.get("item"), ns.get("index"))
-        try:
-            for idx, it in enumerate(items):
-                ns["item"] = _wrap(it)
-                ns["index"] = idx
-                results.append(_run_modules(m.get("modules") or [], ns, meta))
-        finally:
-            ns["item"], ns["index"] = saved
-        return results
-    if t == "whileloop":
-        last = None
-        n = 0
-        cap = int(m.get("max_iter") or 100)
-        while n < cap:
-            ns["index"] = n
-            if not bool(_eval(m.get("condition") or "False", ns)):
-                break
-            last = _run_modules(m.get("modules") or [], ns, meta)
-            n += 1
-        return last
-    if t == "branchone":
-        for b in (m.get("branches") or []):
-            if bool(_eval(b.get("expr") or "False", ns)):
-                return _run_modules(b.get("modules") or [], ns, meta)
-        return _run_modules(m.get("default_modules") or [], ns, meta)
-    if t == "branchall":
-        branches = m.get("branches") or []
-        if m.get("parallel") and len(branches) > 1:
-            def _one(b):
-                return _run_modules(b.get("modules") or [], _child_ns(ns), meta)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(branches))) as ex:
-                return list(ex.map(_one, branches))
-        return [_run_modules(b.get("modules") or [], ns, meta) for b in branches]
-    return None
+def _hook_builtin(name, args, ns, meta):
+    if name == "http":
+        return _http_action(args or {}, ns, meta)
+    if name == "email":
+        return _email_action(args or {}, ns, meta)
+    if name == "sql":
+        return _sql_action(args or {}, ns, meta)
+    if name == "poll_dedup":
+        return _poll_dedup_action(args or {}, ns, meta)
+    raise ValueError(f"builtin inconnu : {name}")
 
 
-def _run_modules(modules, ns, meta):
-    """Exécute une liste de sous-modules (dans une boucle/branche). Retourne le dernier résultat."""
-    last = None
-    for m in modules:
-        if m.get("type") == "approval":
-            raise ValueError("approbation autorisée au niveau racine du flow uniquement")
-        res, _sk = _exec_one(m, ns, meta)
-        last = res
-    return last
+def _hook_audit(kind, detail, m, meta):
+    _audit(kind, agent=(m.get("summary") or kind), detail=str(detail or "")[:80],
+           user_id=meta.get("mowner") or meta.get("user_id"), project_id=meta.get("mproj"),
+           parent_id=meta.get("root"))
 
 
-def _new_ns(inputs):
-    fi = _wrap(inputs or {})
-    res = _Dot()
-    return {"flow_input": fi, "input": fi, "results": res, "step": res, "item": "", "index": 0}
+flow_engine.HOOKS.update({"agent": _hook_agent, "mcp_tool": _hook_mcp_tool,
+                          "builtin": _hook_builtin, "audit": _hook_audit,
+                          "has_cap": rbac.has_cap, "files_mod": files})
+
+_flow_nest = threading.local()
 
 
-def _top_run(flow, ns, meta, task_steps, start=0):
-    tid = meta["tid"]
-    modules = flow.get("modules", [])
-    last = None
-    i = start
-    while i < len(modules):
-        m = modules[i]
-        task_steps[i]["status"] = "running"
-        _task_set(tid, steps=task_steps)
-        try:
-            res, skipped = _exec_one(m, ns, meta)
-        except _Suspend as s:
-            token = secrets.token_urlsafe(16)
-            filestore.put("flow_suspended", token, {
-                "flow_id": flow["id"], "tid": tid, "next_index": i + 1,
-                "results": _plain(ns["results"]), "inputs": _plain(ns["flow_input"]),
-                "meta": {k: meta[k] for k in ("mscope", "mowner", "mproj", "root", "user_id", "fid")},
-                "message": s.payload.get("message", "")})
-            task_steps[i]["status"] = "waiting"
-            _task_set(tid, steps=task_steps, status="waiting")
-            base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
-            return {"task_id": tid, "status": "waiting", "resume_token": token,
-                    "message": s.payload.get("message", ""),
-                    "approve_url": f"{base}/flows/resume/{token}?decision=approve",
-                    "reject_url": f"{base}/flows/resume/{token}?decision=reject"}
-        except _StopFlow as st:
-            task_steps[i]["status"] = "done"
-            _task_set(tid, steps=task_steps, status="done", result=_short(st.value))
-            return {"task_id": tid, "status": "done", "result": st.value, "stopped": True,
-                    "results": _plain(ns["results"])}
-        except Exception as e:  # noqa: BLE001
-            if m.get("continue_on_error"):
-                task_steps[i]["status"] = "error"
-                task_steps[i]["error"] = str(e)
-                _store_result(ns, m, {"error": str(e)})
-                _task_set(tid, steps=task_steps)
-                last = {"error": str(e)}
-                i += 1
-                continue
-            task_steps[i]["status"] = "error"
-            task_steps[i]["error"] = str(e)
-            handlers = flow.get("on_error") or []
-            if handlers:                          # gestionnaire d'erreurs du flow → on ne plante pas
-                ns["error"] = _wrap({"message": str(e), "step": m.get("summary") or m.get("id")})
-                _task_set(tid, steps=task_steps, status="running")
-                try:
-                    handled = _run_modules(handlers, ns, meta)
-                except Exception as he:           # noqa: BLE001 — handler en échec : on remonte l'erreur initiale
-                    _task_set(tid, steps=task_steps, status="error", result=str(e))
-                    return {"task_id": tid, "status": "error", "error": str(e),
-                            "failed_step": m.get("summary"), "handler_error": str(he),
-                            "results": _plain(ns["results"])}
-                _task_set(tid, status="error_handled", result=_short(handled))
-                return {"task_id": tid, "status": "error_handled", "error": str(e),
-                        "failed_step": m.get("summary"), "handler_result": handled,
-                        "results": _plain(ns["results"])}
-            _task_set(tid, steps=task_steps, status="error", result=str(e))
-            return {"task_id": tid, "status": "error", "error": str(e), "failed_step": m.get("summary"),
-                    "results": _plain(ns["results"])}
-        task_steps[i]["status"] = "skipped" if skipped else "done"
-        _task_set(tid, steps=task_steps)
-        last = res
-        i += 1
-    _task_set(tid, status="done", result=_short(last))
-    return {"task_id": tid, "status": "done", "result": last, "results": _plain(ns["results"]),
-            "files_out": meta.get("files_out") or []}
-
-
-_flow_nest = threading.local()   # garde anti-récursion (flow → étape agent → run_flow → …)
-
-
-def run_flow(flow, inputs, user_id, up_to=None):
+def run_flow(flow, inputs, user_id, up_to=None, triggered_by=None):
+    """Exécute un flow (moteur OpenFlow) avec gestion de tâche + approbations."""
     depth = getattr(_flow_nest, "d", 0)
     if depth >= 3:
         return {"status": "error", "error": "profondeur de flows imbriqués dépassée (max 3)"}
     _flow_nest.d = depth + 1
     try:
-        flow = flows.get_flow(flow.get("id")) or flow   # fraîche + normalisée
+        flow = flows.get_flow(flow.get("id")) or flow
         if flow.get("scope") == "projet":
             mscope, mowner, mproj = "project", None, flow.get("project_id")
         else:
             mscope, mowner, mproj = "user", flow.get("owner_id") or user_id, None
-        modules = flow.get("modules", [])
-        if up_to:                                       # « tester jusqu'à » : tronque la liste
+        modules = (flow.get("value") or {}).get("modules", [])
+        if up_to:                                 # « tester jusqu'à » : tronque la liste
             ids = [m.get("id") for m in modules]
             if up_to in ids:
-                flow = {**flow, "modules": modules[:ids.index(up_to) + 1]}
-                modules = flow["modules"]
-        # entrées de type « file » : contenu texte injecté dans flow_input + fichiers montés dans le sandbox
+                modules = modules[:ids.index(up_to) + 1]
+                flow = {**flow, "value": {**flow["value"], "modules": modules}}
+        # entrées de type « file » : texte injecté + fichiers montés dans le bac à sable
         inputs = dict(inputs or {})
         fpids = [p["id"] for p in sessions.list_projects(user_id)]
         flow_files = {}
@@ -2162,49 +1681,119 @@ def run_flow(flow, inputs, user_id, up_to=None):
                 fobj = files.get_file(ref, user_id, fpids) or files.get_by_name(ref, user_id, fpids)
                 inputs[it["name"]] = files.extract_text(fobj) if fobj else ""
                 if fobj:
-                    flow_files[it["name"]] = fobj          # pour le montage dans le bac à sable du code
-        task_steps = [{"name": m.get("summary") or m.get("type"), "status": "pending"} for m in modules]
+                    flow_files[it["name"]] = fobj
+        task_steps = [{"name": m.get("summary") or (m.get("value") or {}).get("type"), "status": "pending"}
+                      for m in modules]
         tid = _task_new(flow.get("name", "flow"), "flow", task_steps, flow.get("owner_id") or user_id, mproj)
         root = _audit("flow", agent=flow.get("name", "flow"), detail=f"{len(modules)} modules",
                       user_id=mowner or user_id, project_id=mproj, initiator=f"flow:{flow.get('id', '')}")
-        ns = _new_ns(inputs or {})
         meta = {"mscope": mscope, "mowner": mowner, "mproj": mproj,
-                "user_id": flow.get("owner_id") or user_id, "root": root, "tid": tid, "fid": flow.get("id", ""),
-                "files": flow_files, "files_out": [],
+                "user_id": flow.get("owner_id") or user_id, "root": root, "tid": tid,
+                "fid": flow.get("id", ""), "files": flow_files, "files_out": [],
                 "out_scope": "projet" if mscope == "project" else "perso",
                 "out_owner": None if mscope == "project" else (flow.get("owner_id") or user_id),
-                "out_project": mproj}
-        return _top_run(flow, ns, meta, task_steps, start=0)
+                "out_project": mproj, "triggered_by": triggered_by}
+
+        def on_step(i, st):
+            if 0 <= i < len(task_steps):
+                task_steps[i]["status"] = {"running": "running", "done": "done", "skipped": "done",
+                                           "waiting": "waiting", "error": "error"}.get(st, st)
+                _task_set(tid, steps=task_steps)
+
+        r = flow_engine.run_flow_inner(flow, inputs, meta, on_step=on_step)
+        return _finish_run(r, flow, tid, task_steps, meta)
     finally:
         _flow_nest.d = depth
 
 
-def resume_flow(token, decision):
+def _finish_run(r, flow, tid, task_steps, meta):
+    if r.get("status") == "waiting":
+        sus = (r.get("suspend") or {})
+        mod = sus.get("module") or {}
+        scfg = mod.get("suspend") or {}
+        token = secrets.token_urlsafe(16)
+        message = scfg.get("message") or mod.get("summary") or "Validation requise pour continuer."
+        filestore.put("flow_suspended", token, {
+            "flow_id": flow["id"], "tid": tid, "next_index": r["next_index"],
+            "results": (r.get("ns") or {}).get("results") or {},
+            "inputs": (r.get("ns") or {}).get("flow_input") or {},
+            "resumes": (r.get("ns") or {}).get("resumes") or [],
+            "needed": max(1, int(scfg.get("required_events") or 1)),
+            "resume_form": scfg.get("resume_form"),
+            "timeout_at": (time.time() + int(scfg["timeout"])) if scfg.get("timeout") else None,
+            "continue_on_timeout": bool(scfg.get("continue_on_disapprove_timeout")),
+            "meta": {k: meta.get(k) for k in ("mscope", "mowner", "mproj", "root", "user_id", "fid")},
+            "message": message})
+        _task_set(tid, steps=task_steps, status="waiting")
+        base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+        return {"task_id": tid, "status": "waiting", "resume_token": token, "message": message,
+                "resume_form": scfg.get("resume_form"),
+                "approve_url": f"{base}/flows/resume/{token}?decision=approve",
+                "reject_url": f"{base}/flows/resume/{token}?decision=reject"}
+    if r.get("status") in ("error", "error_handled"):
+        _task_set(tid, status="error", result=str(r.get("error"))[:500])
+        return {"task_id": tid, "status": r["status"], "error": r.get("error"),
+                "failure_result": r.get("failure_result"), "results": r.get("results")}
+    _task_set(tid, steps=task_steps, status="done", result=_short(r.get("result")))
+    out = {"task_id": tid, "status": "done", "result": r.get("result"), "results": r.get("results")}
+    for k in ("stopped", "skipped", "early_return", "cached"):
+        if r.get(k):
+            out[k] = True
+    if meta.get("files_out"):
+        out["files_out"] = meta["files_out"]
+    return out
+
+
+def resume_flow(token, decision, payload=None):
+    """Reprend (ou rejette) un flow suspendu. `payload` = données du resume_form
+    (exposées au flow via `resume` / `resumes`, sémantique OpenFlow)."""
     s = filestore.items("flow_suspended").get(token)
     if not s:
         return {"error": "jeton d'approbation inconnu ou déjà utilisé"}
-    filestore.delete("flow_suspended", token)
     flow = flows.get_flow(s["flow_id"])
     tid = s["tid"]
     t = filestore.items("tasks").get(tid) or {}
     task_steps = t.get("steps", [])
     idx = s["next_index"] - 1
+    timed_out = s.get("timeout_at") and time.time() > float(s["timeout_at"])
+    if timed_out and not s.get("continue_on_timeout"):
+        decision = "reject"
     if decision != "approve":
+        filestore.delete("flow_suspended", token)
         if 0 <= idx < len(task_steps):
             task_steps[idx]["status"] = "error"
             task_steps[idx]["error"] = "approbation refusée"
         _task_set(tid, steps=task_steps, status="error", result="Approbation refusée")
         return {"task_id": tid, "status": "rejected"}
+    s["resumes"] = (s.get("resumes") or []) + [payload if payload is not None else {"approved": True}]
+    s["needed"] = int(s.get("needed") or 1) - 1
+    if s["needed"] > 0:                            # multi-approbations (required_events)
+        filestore.put("flow_suspended", token, s)
+        return {"task_id": tid, "status": "waiting", "remaining": s["needed"]}
+    filestore.delete("flow_suspended", token)
     if not flow:
         return {"error": "flow introuvable"}
     if 0 <= idx < len(task_steps):
         task_steps[idx]["status"] = "done"
     _task_set(tid, steps=task_steps, status="running")
-    ns = _new_ns(s.get("inputs") or {})
+    ns = flow_engine.new_ns(s.get("inputs") or {})
     ns["results"] = _wrap(s.get("results") or {})
     ns["step"] = ns["results"]
-    meta = {**s["meta"], "tid": tid}
-    return _top_run(flow, ns, meta, task_steps, start=s["next_index"])
+    ns["resumes"] = s.get("resumes") or []
+    ns["resume"] = ns["resumes"][-1] if ns["resumes"] else None
+    meta = {**s["meta"], "tid": tid, "files": {}, "files_out": [],
+            "out_scope": "projet" if s["meta"].get("mscope") == "project" else "perso",
+            "out_owner": s["meta"].get("mowner"), "out_project": s["meta"].get("mproj")}
+
+    def on_step(i, st):
+        if 0 <= i < len(task_steps):
+            task_steps[i]["status"] = {"running": "running", "done": "done", "skipped": "done",
+                                       "waiting": "waiting", "error": "error"}.get(st, st)
+            _task_set(tid, steps=task_steps)
+
+    r = flow_engine.run_flow_inner(flow, s.get("inputs") or {}, meta,
+                                   start=s["next_index"], ns=ns, on_step=on_step)
+    return _finish_run(r, flow, tid, task_steps, meta)
 
 
 # ───────────────────────── Génération de flow par IA ─────────────────────────
@@ -2262,13 +1851,19 @@ def _resolve_agent_id(aid, ags):
     return "orchestrateur"
 
 
+_AI_GEN_TYPES = ("agent", "tool", "code", "note", "http", "email", "sql", "trigger",
+                 "forloop", "branchone", "branchall", "whileloop", "approval")
+# L'IA génère le format SIMPLE historique (éprouvé avec les modèles) ; flows.migrate_legacy
+# le convertit ensuite en OpenFlow natif — aucun risque de prompt cassé.
+
+
 def _coerce_flow_spec(data, ags, old_pos=None):
     def fix(mods):
         out = []
         for m in (mods or []):
             if not isinstance(m, dict):
                 continue
-            if m.get("type") not in flows.ALL_TYPES:
+            if m.get("type") not in _AI_GEN_TYPES:
                 m["type"] = "note"
             m.setdefault("id", flows.new_module_id())
             if m["type"] == "agent":
@@ -2326,21 +1921,74 @@ def _ai_generate_flow(prompt, user_id):
     return _ai_complete_flow(_FLOW_GEN_SYS + ctx, prompt, ags, _uid=user_id)
 
 
+def _tf_view(t):
+    """InputTransform → valeur lisible pour le LLM (static = brut ; javascript = {{ expr }})."""
+    if isinstance(t, dict) and t.get("type") == "javascript":
+        return "{{ " + str(t.get("expr", "")) + " }}"
+    return t.get("value") if isinstance(t, dict) and t.get("type") == "static" else t
+
+
 def _flow_for_ai(flow):
-    """Vue compacte du flow (sans champs avancés par défaut) pour l'envoyer au LLM."""
-    def strip(m):
-        keep = {k: m[k] for k in ("id", "summary", "type", "agent_id", "prompt", "server_id",
-                                   "tool", "args", "content", "text", "iterator", "condition",
-                                   "max_iter", "message", "parallel") if k in m and m[k] not in (None, "", {}, [])}
-        for key in ("modules", "default_modules"):
-            if m.get(key):
-                keep[key] = [strip(x) for x in m[key]]
-        if m.get("branches"):
-            keep["branches"] = [{kk: (b.get(kk) if kk != "modules" else [strip(x) for x in b.get("modules", [])])
-                                 for kk in ("summary", "expr", "modules") if kk in b} for b in m["branches"]]
-        return keep
+    """Vue compacte du flow pour le LLM : modules OpenFlow RÉTRO-CONVERTIS au format simple
+    que le prompt décrit (le résultat de l'IA repasse par flows.migrate_legacy)."""
+    _HUB = {"hub/elytras/http_request": "http", "hub/elytras/send_email": "email",
+            "hub/elytras/sql_query": "sql", "hub/elytras/poll_dedup": "trigger"}
+
+    def down(m):
+        v = m.get("value") or {}
+        t = v.get("type")
+        keep = {"id": m.get("id"), "summary": m.get("summary")}
+        tfs = {k: _tf_view(x) for k, x in (v.get("input_transforms") or {}).items()}
+        if t == "rawscript":
+            keep.update({"type": "code", "language": {"python3": "python", "bun": "javascript",
+                                                      "deno": "typescript"}.get(v.get("language"), v.get("language")),
+                         "content": v.get("content", "")})
+        elif t == "script" and v.get("path") in _HUB:
+            kind = _HUB[v["path"]]
+            keep["type"] = kind
+            if kind == "trigger":
+                keep.update({"content": tfs.get("code", ""), "language": tfs.get("language", "python"),
+                             "key": tfs.get("key", "")})
+            else:
+                keep.update(tfs)
+        elif t == "script":
+            keep.update({"type": "code", "language": "python",
+                         "content": f"# script de la bibliothèque : {v.get('path')}"})
+        elif t == "aiagent":
+            keep.update({"type": "agent", "agent_id": v.get("agent_id"),
+                         "prompt": tfs.get("user_message", "")})
+        elif t == "mcptool":
+            keep.update({"type": "tool", "server_id": v.get("server_id"), "tool": v.get("tool"),
+                         "args": tfs})
+        elif t == "identity" and m.get("suspend"):
+            keep.update({"type": "approval", "message": (m.get("suspend") or {}).get("message", "")})
+        elif t == "forloopflow":
+            it = v.get("iterator") or {}
+            keep.update({"type": "forloop", "iterator": it.get("expr") if isinstance(it, dict) else str(it),
+                         "parallel": v.get("parallel", False),
+                         "modules": [down(x) for x in v.get("modules", [])]})
+        elif t == "whileloopflow":
+            keep.update({"type": "whileloop", "condition": v.get("condition", ""),
+                         "max_iter": v.get("max_iter", 100),
+                         "modules": [down(x) for x in v.get("modules", [])]})
+        elif t == "branchone":
+            keep.update({"type": "branchone",
+                         "branches": [{"summary": b.get("summary"), "expr": b.get("expr"),
+                                       "modules": [down(x) for x in b.get("modules", [])]}
+                                      for b in v.get("branches", [])],
+                         "default_modules": [down(x) for x in v.get("default", [])]})
+        elif t == "branchall":
+            keep.update({"type": "branchall", "parallel": v.get("parallel", False),
+                         "branches": [{"summary": b.get("summary"),
+                                       "modules": [down(x) for x in b.get("modules", [])]}
+                                      for b in v.get("branches", [])]})
+        else:
+            keep["type"] = "note"
+            keep["text"] = m.get("summary", "")
+        return {k: x for k, x in keep.items() if x not in (None, "", {}, [])} | {"id": keep["id"]}
     return {"name": flow.get("name"), "summary": flow.get("summary", ""),
-            "inputs": flow.get("inputs", []), "modules": [strip(m) for m in flow.get("modules", [])]}
+            "inputs": flow.get("inputs", []),
+            "modules": [down(m) for m in (flow.get("value") or {}).get("modules", [])]}
 
 
 def _ai_edit_flow(flow, instruction, user_id):
@@ -3348,24 +2996,17 @@ def one_flow(fid: str, user_id: str = DEFAULT_USER):
     return f if f else JSONResponse({"error": "flow introuvable"}, status_code=404)
 
 
-class FlowUpdateReq(BaseModel):
-    name: str | None = None
-    summary: str | None = None
-    description: str | None = None
-    inputs: list | None = None
-    modules: list | None = None
-    on_error: list | None = None
-    ui: dict | None = None
-    scope: str | None = None
-    project_id: str | None = None
-    user_id: str = DEFAULT_USER
-
-
+# PATCH /flows : corps lu en brut (accepte l'ANCIEN format — modules/inputs/on_error,
+# migré automatiquement — ET le nouveau : value (FlowValue OpenFlow) + schema JSON Schema).
 @app.patch("/flows/{fid}")
-def patch_flow(fid: str, req: FlowUpdateReq, actor: str = Depends(_need("flow.edit"))):
-    ok = flows.update_flow(fid, name=req.name, summary=req.summary, description=req.description,
-                           inputs=req.inputs, modules=req.modules, on_error=req.on_error, ui=req.ui,
-                           scope=req.scope, project_id=req.project_id)
+async def patch_flow(fid: str, request: Request, actor: str = Depends(_need("flow.edit"))):
+    body = await request.json()
+    ok = flows.update_flow(fid, name=body.get("name"), summary=body.get("summary"),
+                           description=body.get("description"), inputs=body.get("inputs"),
+                           modules=body.get("modules"), on_error=body.get("on_error"),
+                           ui=body.get("ui"), scope=body.get("scope"),
+                           project_id=body.get("project_id"), value=body.get("value"),
+                           schema=body.get("schema"))
     return flows.get_flow(fid) if ok else JSONResponse({"error": "flow introuvable"}, status_code=404)
 
 
@@ -3447,7 +3088,18 @@ async def flow_webhook(fid: str, token: str, request: Request):
         body = await request.json()
     except Exception:
         body = {}
-    return run_flow(f, body if isinstance(body, dict) else {"body": body}, f.get("owner_id"))
+    return run_flow(f, body if isinstance(body, dict) else {"body": body}, f.get("owner_id"),
+                    triggered_by="webhook")
+
+
+class _ResumeReq(BaseModel):
+    decision: str = "approve"
+    payload: dict | None = None        # données du resume_form (dispo via `resume`/`resumes`)
+
+
+@app.post("/flows/resume/{token}")
+def resume_flow_post(token: str, req: _ResumeReq):
+    return resume_flow(token, req.decision, payload=req.payload)
 
 
 @app.get("/flows/resume/{token}")
@@ -3458,6 +3110,210 @@ def resume_flow_ep(token: str, decision: str = "approve"):
             f"<p>Statut du flow : <b>{r.get('status', r.get('error', '?'))}</b></p>"
             "<p>Tu peux fermer cet onglet.</p></body></html>")
     return HTMLResponse(html)
+
+
+# ───────────────────────── Import / export OpenFlow (interop Hub Windmill) ─────────────────────────
+@app.get("/flows/{fid}/openflow")
+def export_openflow_ep(fid: str, actor: str = Depends(_need("flow.view"))):
+    data = flows.export_openflow(fid)
+    return data if data else JSONResponse({"error": "flow introuvable"}, status_code=404)
+
+
+class _ImportOpenflowReq(BaseModel):
+    openflow: dict
+    scope: str = "perso"
+    project_id: str | None = None
+    user_id: str = DEFAULT_USER
+
+
+@app.post("/flows/import-openflow")
+def import_openflow_ep(req: _ImportOpenflowReq, actor: str = Depends(_need("flow.create"))):
+    try:
+        fid = flows.import_openflow(req.openflow, actor, req.scope, req.project_id)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return flows.get_flow(fid)
+
+
+# ───────────────────────── Scripts : bibliothèque (actions réutilisables) ─────────────────────────
+class _ScriptReq(BaseModel):
+    summary: str
+    language: str = "python3"
+    content: str = ""
+    description: str = ""
+    kind: str = "action"
+    path: str | None = None
+    scope: str = "perso"
+    project_id: str | None = None
+    user_id: str = DEFAULT_USER
+
+
+@app.get("/scripts")
+def scripts_list(user_id: str = DEFAULT_USER):
+    pids = [p["id"] for p in sessions.list_projects(user_id)]
+    return {"scripts": scripts_lib.list_scripts(user_id, pids),
+            "languages": runners.available(), "kinds": scripts_lib.KINDS}
+
+
+@app.post("/scripts")
+def scripts_create(req: _ScriptReq, actor: str = Depends(_need("code.execute"))):
+    sid = scripts_lib.create(actor, req.path, req.summary, req.language, req.content,
+                             req.description, req.kind, req.scope, req.project_id)
+    return scripts_lib.get(sid)
+
+
+@app.get("/scripts/{sid}")
+def scripts_get(sid: str, user_id: str = DEFAULT_USER):
+    s = scripts_lib.get(sid)
+    return s if s else JSONResponse({"error": "script introuvable"}, status_code=404)
+
+
+@app.patch("/scripts/{sid}")
+async def scripts_patch(sid: str, request: Request, actor: str = Depends(_need("code.execute"))):
+    body = await request.json()
+    ok = scripts_lib.update(sid, deploy=body.get("deploy", True),
+                            **{k: body.get(k) for k in ("path", "summary", "description", "language",
+                                                        "content", "kind", "scope", "project_id", "archived")})
+    return scripts_lib.get(sid) if ok else JSONResponse({"error": "script introuvable"}, status_code=404)
+
+
+@app.delete("/scripts/{sid}")
+def scripts_delete(sid: str, actor: str = Depends(_need("code.execute"))):
+    return {"deleted": scripts_lib.delete(sid)}
+
+
+class _ScriptRunReq(BaseModel):
+    args: dict = {}
+    user_id: str = DEFAULT_USER
+
+
+@app.post("/scripts/{sid}/run")
+def scripts_run(sid: str, req: _ScriptRunReq, actor: str = Depends(_need("code.execute"))):
+    """Exécute un script SEUL (test instantané façon Windmill, ou action directe)."""
+    s = scripts_lib.get(sid)
+    if not s:
+        return JSONResponse({"error": "script introuvable"}, status_code=404)
+    ns = flow_engine.new_ns(req.args or {})
+    meta = {"user_id": actor, "mowner": actor, "mproj": None, "root": None, "fid": "script:" + sid,
+            "_mid": sid, "mscope": "user"}
+    _audit("script", agent=s.get("summary") or s.get("path", ""), detail="run direct", user_id=actor)
+    try:
+        if s.get("builtin"):
+            out = _hook_builtin(s["builtin"], req.args or {}, ns, meta)
+        else:
+            out = runners.run(s.get("content", ""), s.get("language", "python3"),
+                              req.args or {}, ns, 60, meta, files_mod=files)
+        return {"status": "done", "result": exprs.plain(out)}
+    except Exception as e:  # noqa: BLE001
+        return {"status": "error", "error": str(e)[:600]}
+
+
+class _ParseSchemaReq(BaseModel):
+    language: str = "python3"
+    content: str = ""
+    user_id: str = DEFAULT_USER
+
+
+@app.post("/scripts/parse-schema")
+def scripts_parse_schema(req: _ParseSchemaReq, user_id: str = DEFAULT_USER):
+    """Schéma d'entrées auto-déduit de la signature main(...) (auto-generated UI Windmill)."""
+    return {"schema": scripts_lib.parse_schema(req.language, req.content)}
+
+
+# ───────────────────────── Triggers : webhooks · routes HTTP · email · cron ─────────────────────────
+class _TriggerReq(BaseModel):
+    kind: str
+    target: dict = {}                  # {flow_id} ou {script_path}
+    config: dict = {}
+    user_id: str = DEFAULT_USER
+
+
+@app.get("/triggers")
+def triggers_list(flow_id: str | None = None, user_id: str = DEFAULT_USER):
+    return {"triggers": triggers.list_triggers(flow_id),
+            "kinds": {"actifs": list(triggers.ACTIVE_KINDS),
+                      "declares": list(triggers.DECLARED_KINDS)}}
+
+
+@app.post("/triggers")
+def triggers_create(req: _TriggerReq, actor: str = Depends(_need("flow.edit"))):
+    try:
+        tid = triggers.create(req.kind, req.target, req.config, actor)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return {"id": tid, "triggers": triggers.list_triggers()}
+
+
+@app.patch("/triggers/{tid}")
+async def triggers_patch(tid: str, request: Request, actor: str = Depends(_need("flow.edit"))):
+    body = await request.json()
+    ok = triggers.update(tid, enabled=body.get("enabled"), target=body.get("target"),
+                         config=body.get("config"))
+    return {"ok": ok} if ok else JSONResponse({"error": "trigger introuvable"}, status_code=404)
+
+
+@app.delete("/triggers/{tid}")
+def triggers_delete(tid: str, actor: str = Depends(_need("flow.edit"))):
+    return {"deleted": triggers.delete(tid)}
+
+
+def _run_trigger_target(t, payload, kind):
+    """Lance la cible d'un trigger (flow ou script) avec le payload du déclencheur."""
+    target = t.get("target") or {}
+    if target.get("flow_id"):
+        f = flows.get_flow(target["flow_id"])
+        if not f:
+            return {"error": "flow cible introuvable"}
+        return run_flow(f, payload if isinstance(payload, dict) else {"body": payload},
+                        f.get("owner_id") or t.get("owner_id"), triggered_by=kind)
+    if target.get("script_path"):
+        s = scripts_lib.get(target["script_path"])
+        if not s:
+            return {"error": "script cible introuvable"}
+        ns = flow_engine.new_ns(payload or {})
+        meta = {"user_id": t.get("owner_id") or DEFAULT_USER, "mowner": t.get("owner_id"),
+                "mproj": None, "root": None, "fid": "trigger", "_mid": t.get("id", ""), "mscope": "user"}
+        try:
+            if s.get("builtin"):
+                return {"result": _hook_builtin(s["builtin"], payload or {}, ns, meta)}
+            return {"result": exprs.plain(runners.run(s.get("content", ""), s.get("language", "python3"),
+                                                      payload or {}, ns, 60, meta, files_mod=files))}
+        except Exception as e:  # noqa: BLE001
+            return {"error": str(e)[:400]}
+    return {"error": "trigger sans cible"}
+
+
+@app.api_route("/r/{route_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def http_route_trigger(route_path: str, request: Request):
+    """Routes HTTP custom (façon Windmill http_routes) : méthode+chemin → flow ou script."""
+    t = triggers.find_http_route(request.method, route_path)
+    if not t:
+        return JSONResponse({"error": "route inconnue"}, status_code=404)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    payload = {**dict(request.query_params), **(body if isinstance(body, dict) else {"body": body})}
+    return _run_trigger_target(t, payload, "http")
+
+
+def _email_trigger_loop():
+    """Scrute les boîtes IMAP des triggers email (intervalle par trigger) et lance les cibles."""
+    while True:
+        try:
+            for tid, t in triggers.email_triggers_due():
+                try:
+                    for msg in triggers.poll_email_trigger(tid, t):
+                        _run_trigger_target({**t, "id": tid}, msg, "email")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        time.sleep(30)
+
+
+if os.environ.get("ELYTRAS_EMAIL_TRIGGERS", "1") not in ("0", "false"):
+    threading.Thread(target=_email_trigger_loop, daemon=True).start()
 
 
 # ───────────────────────── Tâches (kanban) ─────────────────────────

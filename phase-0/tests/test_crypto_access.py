@@ -3,6 +3,7 @@ import importlib
 import elytras.crypto as C
 import elytras.main as M
 import elytras.rbac as R
+import elytras.runners as RUN
 import elytras.filestore as filestore
 
 
@@ -58,10 +59,10 @@ def test_skill_access_default_open_then_restricted(client, admin, H):
 def test_sandbox_cmd_isolation(monkeypatch):
     """Le bac à sable Linux (bwrap) coupe le réseau et monte le FS en lecture seule ;
     seul le dossier de travail est accessible en écriture."""
-    monkeypatch.setattr(M, "_SANDBOX_MODE", "auto")
-    monkeypatch.setattr(M.sys, "platform", "linux")
-    monkeypatch.setattr(M.shutil, "which", lambda n: "/usr/bin/bwrap" if n == "bwrap" else None)
-    cmd, sb = M._sandbox_cmd(["python3", "/x/s.py"], "/x/s.py", work="/work")
+    monkeypatch.setattr(RUN, "SANDBOX_MODE", "auto")
+    monkeypatch.setattr(RUN.sys, "platform", "linux")
+    monkeypatch.setattr(RUN.shutil, "which", lambda n: "/usr/bin/bwrap" if n == "bwrap" else None)
+    cmd, sb = RUN.sandbox_cmd(["python3", "/x/s.py"], "/x/s.py", work="/work")
     assert sb is True
     assert "--unshare-net" in cmd and "--die-with-parent" in cmd       # réseau coupé
     assert cmd[cmd.index("--ro-bind") + 1:cmd.index("--ro-bind") + 3] == ["/", "/"]  # FS read-only
@@ -70,10 +71,10 @@ def test_sandbox_cmd_isolation(monkeypatch):
 
 def test_sandbox_required_mode_raises_without_tool(monkeypatch):
     """ELYTRAS_CODE_SANDBOX=on : refuse d'exécuter si aucun bac à sable n'est disponible."""
-    monkeypatch.setattr(M, "_SANDBOX_MODE", "on")
-    monkeypatch.setattr(M.shutil, "which", lambda n: None)
+    monkeypatch.setattr(RUN, "SANDBOX_MODE", "on")
+    monkeypatch.setattr(RUN.shutil, "which", lambda n: None)
     try:
-        M._sandbox_cmd(["python3", "/x/s.py"], "/x/s.py")
+        RUN.sandbox_cmd(["python3", "/x/s.py"], "/x/s.py")
         assert False, "aurait dû lever"
     except RuntimeError as e:
         assert "bac à sable" in str(e)
