@@ -1811,6 +1811,7 @@ let _insertAt=null;
 let _palCat='action', _palQ='', _palTools={};
 const PAL_CATS=[
  {id:'action',ic:'⌁',label:'Action'},
+ {id:'hub',ic:'🧰',label:'Hub Windmill'},
  {id:'agent',ic:'🤖',label:'Agent IA'},
  {id:'trigger',ic:'📡',label:'Trigger'},
  {id:'approval',ic:'✋',label:'Approbation'},
@@ -1879,11 +1880,25 @@ function palListHTML(){
     });
     if(mcpH)groups.push(`<div class="pal-group">Intégrations (outils MCP)</div>`+mcpH);
   }
+  // — Hub Windmill : catégorie dédiée OU inclus dans la recherche globale —
+  if(_palCat==='hub'||q){
+    if(!window._hubCat){ loadHubCatalog();
+      groups.push(`<div class="pal-group">Hub Windmill</div><div class="pal-empty">Chargement du catalogue…</div>`);
+    } else {
+      const hits=hubItems(q), cap=q?40:80;
+      const hH=hits.slice(0,cap).map(x=>it(`insertHubAt(${x.ask_id})`,
+        x.kind==='trigger'?'📡':'🧰','#2563eb',x.summary||('#'+x.ask_id),
+        x.app+(x.description?' — '+x.description:''))).join('');
+      const hdr=`<div class="pal-group">Hub Windmill — ${window._hubCat.counts.actions} actions, ${window._hubCat.counts.triggers} triggers (${window._hubCat.counts.integrations} intégrations)</div>`;
+      if(hH)groups.push(hdr+hH+(hits.length>cap?`<div class="pal-empty">+${hits.length-cap} autres — affine la recherche.</div>`:''));
+      else if(_palCat==='hub')groups.push(hdr+`<div class="pal-empty">Tape un nom d'app ou d'action (shopify, slack, gmail, stripe…).</div>`);
+    }
+  }
   if(q){
     const sH=Object.entries(PAL_DESC).filter(([t,d])=>match(TYPE_META[t].label)||match(d))
       .map(([t,d])=>it(`insertModuleAt('${t}')`,TYPE_META[t].icon,TYPE_META[t].color,TYPE_META[t].label,d)).join('');
     if(sH)groups.push(`<div class="pal-group">Étapes</div>`+sH);
-  } else if(_palCat!=='action'){
+  } else if(_palCat!=='action'&&_palCat!=='hub'){
     const t=_palCat;
     groups.push(`<div class="pal-group">${esc(TYPE_META[t].label)}</div>`+
       it(`insertModuleAt('${t}')`,TYPE_META[t].icon,TYPE_META[t].color,'Insérer : '+TYPE_META[t].label,PAL_DESC[t]||''));
@@ -1906,6 +1921,36 @@ function insertCodeAt(lang){ const at=_insertAt; closeInsertPalette(); addModule
   const m=findModule(selNode); if(m){ m.language=({python3:'python',bun:'javascript',deno:'typescript'})[lang]||lang; } renderFlow(); }
 function insertToolAt(sid,tool){ const at=_insertAt; closeInsertPalette(); addModule('tool',at);
   const m=findModule(selNode); if(m){ m.server_id=sid; m.tool=tool; m.summary=tool; } renderFlow(); }
+// — Hub Windmill : catalogue + insertion d'un script (code téléchargé depuis le hub) —
+const HUB_LANG_UI={python3:'python',deno:'typescript',nativets:'typescript',bun:'javascript'};
+async function loadHubCatalog(){
+  if(window._hubCat||window._hubLoading)return; window._hubLoading=true;
+  try{ const d=await jget('/hub/catalog');
+    d.list=[...(d.actions||[]),...(d.triggers||[])];
+    window._hubCat=d; }catch(e){ window._hubCat={list:[],counts:{actions:0,triggers:0,integrations:0}}; }
+  window._hubLoading=false; if($('#flow_pop'))renderPal();
+}
+function hubItems(q){
+  const list=(window._hubCat&&window._hubCat.list)||[]; q=(q||'').toLowerCase();
+  if(!q)return list;
+  return list.filter(x=>(x.app||'').toLowerCase().includes(q)||(x.summary||'').toLowerCase().includes(q)||(x.description||'').toLowerCase().includes(q));
+}
+async function insertHubAt(askId){
+  const at=_insertAt; closeInsertPalette();
+  banner('Téléchargement du script depuis le Hub…');
+  let d; try{ d=await jget('/hub/script/'+askId); }catch(e){ banner('Échec du téléchargement Hub.','ko'); return; }
+  addModule('code',at);
+  const m=findModule(selNode); if(!m)return;
+  m.language=HUB_LANG_UI[d.language]||d.language||'typescript';
+  m.summary=(d.summary||('Hub #'+askId)).slice(0,60);
+  const C=(['python','bash'].includes(m.language)||['python3','bash','powershell','nu'].includes(d.language))?'#':'//';
+  const head=`${C} Importé du Hub Windmill — ${d.app} : ${d.summary}\n${C} ${d.url}\n`
+    +(d.source==='none'?`${C} ⚠️ ${d.note||'code non récupéré, ouvre le lien ci-dessus.'}\n`
+      :`${C} ⚠️ Modèle de départ : adapte les imports/ressources à ton environnement avant exécution.\n`);
+  m.content=head+'\n'+(d.content||'');
+  renderFlow();
+  banner(d.source==='none'?'Script Hub inséré (code à copier depuis le lien).':'Script Hub inséré — pense à l\'adapter.','ok');
+}
 
 // — palette / manipulation —
 function newName(t){ return (TYPE_META[t]?TYPE_META[t].label:t)+' '+(levelModules().length+1); }

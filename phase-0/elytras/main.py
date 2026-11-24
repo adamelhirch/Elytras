@@ -634,6 +634,174 @@ def _browse(url: str, max_bytes: int = 2_000_000):
         return {"error": str(e)[:200]}
 
 
+# ── Catalogue Hub Windmill (actions/triggers/integrations + téléchargement du code) ──
+_HUB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "windmill_hub")
+_HUB_BASE = os.environ.get("WINDMILL_HUB_URL", "https://hub.windmill.dev").rstrip("/")
+_hub_cache: dict = {}
+
+
+def _hub_catalog() -> dict:
+    """Charge (et met en cache) les 3 fichiers du catalogue Hub embarqués dans le paquet."""
+    if not _hub_cache:
+        for name in ("actions", "triggers", "integrations"):
+            try:
+                with open(os.path.join(_HUB_DIR, name + ".json"), encoding="utf-8") as f:
+                    _hub_cache[name] = json.load(f)
+            except Exception:                        # noqa: BLE001
+                _hub_cache[name] = {"count": 0, "scripts": [], "apps": []}
+    return _hub_cache
+
+
+def _hub_find(ask_id: int) -> dict | None:
+    """Retrouve une entrée du catalogue (action OU trigger) par ask_id."""
+    cat = _hub_catalog()
+    for kind in ("actions", "triggers"):
+        for s in cat[kind].get("scripts", []):
+            if int(s.get("ask_id", -1)) == int(ask_id):
+                return s
+    return None
+
+
+def _hub_slug(summary: str, app: str) -> str:
+    """Reproduit le slug canonique du Hub : slugify(summary) + '-' + app."""
+    base = re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", (summary or "").lower())).strip("-")
+    return f"{base}-{app}".strip("-").lower()
+
+
+_HUB_LANGS = ("python3", "deno", "bun", "nativets", "bash", "powershell", "nu", "go",
+              "php", "rust", "ansible", "csharp", "java", "postgresql", "mysql",
+              "bigquery", "snowflake", "mssql", "oracledb", "graphql", "duckdb")
+
+
+def _hub_guess_lang(code: str) -> str:
+    """Devine le langage Windmill d'un script à partir de son code (repli si l'API ne le donne pas)."""
+    c = code or ""
+    low = c.lower()
+    if re.search(r"^\s*def\s+main\s*\(", c, re.M) or "import os" in low or "import requests" in low:
+        return "python3"
+    if "package main" in low or re.search(r"func\s+main\s*\(", c):
+        return "go"
+    if c.lstrip().startswith("<?php") or "function main(" in low and "$" in c:
+        return "php"
+    if re.match(r"^\s*(select|insert|update|delete|with|create)\b", c, re.I):
+        return "postgresql"
+    if "deno.land" in low or "jsr:" in low or "from \"https://" in low:
+        return "deno"
+    if c.startswith("#!") or re.search(r"^\s*(echo|curl|cat|grep|set -e)\b", c, re.M):
+        return "bash"
+    if "export async function main" in low or "export function main" in low:
+        return "bun"
+    return "deno"
+
+
+def _hub_devalue(data: list):
+    """Décode le format aplati 'devalue' d'un nœud SvelteKit __data.json (valeur racine = index 0)."""
+    seen: dict = {}
+
+    def rec(i):
+        if not isinstance(i, int) or i < 0 or i >= len(data):
+            return None
+        if i in seen:
+            return seen[i]
+        v = data[i]
+        if isinstance(v, dict):
+            o: dict = {}
+            seen[i] = o
+            for k, idx in v.items():
+                o[k] = rec(idx)
+            return o
+        if isinstance(v, list):
+            a: list = []
+            seen[i] = a
+            for idx in v:
+                a.append(rec(idx) if isinstance(idx, int) else idx)
+            return a
+        seen[i] = v
+        return v
+
+    return rec(0)
+
+
+def _hub_extract_from_data(j: dict) -> dict | None:
+    """Cherche dans le __data.json décodé le 1er objet portant content+language."""
+    found = {}
+
+    def walk(o):
+        if found:
+            return
+        if isinstance(o, dict):
+            if isinstance(o.get("content"), str) and o.get("content"):
+                found.update(o)
+                return
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    for node in j.get("nodes", []):
+        if node and node.get("type") == "data" and isinstance(node.get("data"), list):
+            try:
+                walk(_hub_devalue(node["data"]))
+            except Exception:                        # noqa: BLE001
+                continue
+        if found:
+            break
+    return found or None
+
+
+def _hub_get(url: str, accept: str = "*/*", timeout: float = 12.0):
+    """GET Hub protégé (SSRF) avec UA navigateur ; renvoie (status, text) ou (None, '')."""
+    from urllib.parse import urlparse
+    u = urlparse(url)
+    if u.scheme not in ("http", "https") or not u.hostname or not _host_allowed(u.hostname):
+        return None, ""
+    try:
+        r = httpx.get(url, follow_redirects=True, timeout=timeout,
+                      headers={"Accept": accept,
+                               "User-Agent": "Mozilla/5.0 (Elytras hub-import)"})
+        return r.status_code, r.text
+    except Exception:                                # noqa: BLE001
+        return None, ""
+
+
+def _hub_fetch_code(ask_id: int) -> dict:
+    """Télécharge le code d'un script du Hub. Stratégie :
+    1) page canonique en Accept text/plain → code brut (si le Hub honore la négociation) ;
+    2) sinon __data.json (SvelteKit, format devalue) → content + language ;
+    3) repli gracieux : métadonnées + lien (l'utilisateur ouvre la page Hub)."""
+    entry = _hub_find(ask_id)
+    if not entry:
+        return {"ok": False, "error": "ask_id inconnu du catalogue"}
+    app, summary, kind = entry["app"], entry.get("summary", ""), entry.get("kind", "script")
+    slug = _hub_slug(summary, app)
+    page = f"{_HUB_BASE}/scripts/{app}/{ask_id}/{slug}"
+    base = {"ok": True, "ask_id": ask_id, "app": app, "summary": summary,
+            "kind": kind, "url": page}
+
+    # 1) négociation de contenu (renvoie le code brut sur certains egress)
+    st, body = _hub_get(page, accept="text/plain, */*;q=0.3")
+    if st == 200 and body and "<!doctype" not in body[:200].lower() and "<html" not in body[:200].lower():
+        return {**base, "content": body, "language": _hub_guess_lang(body), "source": "raw"}
+
+    # 2) endpoint de données SvelteKit
+    st, body = _hub_get(page + "/__data.json", accept="application/json")
+    if st == 200 and body:
+        try:
+            obj = _hub_extract_from_data(json.loads(body))
+        except Exception:                            # noqa: BLE001
+            obj = None
+        if obj and obj.get("content"):
+            lang = obj.get("language") or _hub_guess_lang(obj["content"])
+            lang = lang if lang in _HUB_LANGS else _hub_guess_lang(obj["content"])
+            return {**base, "content": obj["content"], "language": lang,
+                    "schema": obj.get("schema"), "source": "data"}
+
+    # 3) repli : pas de code, on renvoie un gabarit + lien
+    return {**base, "content": "", "language": "deno", "source": "none",
+            "note": "Code non récupéré automatiquement — ouvre la page Hub pour le copier."}
+
+
 def _with_token(srv: dict, user_id: str) -> dict:
     """Injecte le bon Bearer selon le mode d'auth ET le scope (personnel vs partagé)."""
     auth = srv.get("auth_type", "none")
@@ -3288,6 +3456,32 @@ class _ParseSchemaReq(BaseModel):
 def scripts_parse_schema(req: _ParseSchemaReq, user_id: str = DEFAULT_USER):
     """Schéma d'entrées auto-déduit de la signature main(...) (auto-generated UI Windmill)."""
     return {"schema": scripts_lib.parse_schema(req.language, req.content)}
+
+
+# ───────────────────────── Catalogue Hub Windmill ─────────────────────────
+@app.get("/hub/catalog")
+def hub_catalog(actor: str = Depends(_need("flow.view"))):
+    """Catalogue embarqué du Hub Windmill : actions, triggers et intégrations (pour la palette)."""
+    cat = _hub_catalog()
+    return {
+        "actions": cat["actions"].get("scripts", []),
+        "triggers": cat["triggers"].get("scripts", []),
+        "integrations": cat["integrations"].get("apps", []),
+        "counts": {"actions": cat["actions"].get("count", 0),
+                   "triggers": cat["triggers"].get("count", 0),
+                   "integrations": len(cat["integrations"].get("apps", []))},
+    }
+
+
+@app.get("/hub/script/{ask_id}")
+def hub_script(ask_id: int, actor: str = Depends(_need("flow.edit"))):
+    """Télécharge le code d'un script du Hub par ask_id (pour pré-remplir une étape code)."""
+    out = _hub_fetch_code(ask_id)
+    if out.get("ok"):
+        _audit("hub_import", agent=out.get("summary", ""),
+               detail=f"{out.get('app','')}#{ask_id} ({out.get('source','')})", user_id=actor)
+        return out
+    return JSONResponse(out, status_code=404)
 
 
 # ───────────────────────── Triggers : webhooks · routes HTTP · email · cron ─────────────────────────
