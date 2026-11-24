@@ -1,0 +1,100 @@
+[    3433ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:21548
+[ 1811699ms] ReferenceError: setChannelInboundAgentIdDraft is not defined
+    at http://127.0.0.1:5174/src/App.tsx?t=1775953971636:7418:7
+    at commitHookEffectListMount (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:16913:34)
+    at commitPassiveMountOnFiber (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18154:19)
+    at commitPassiveMountEffects_complete (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18127:17)
+    at commitPassiveMountEffects_begin (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18117:15)
+    at commitPassiveMountEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18107:11)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19488:11)
+    at flushPassiveEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19445:22)
+    at commitRootImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19414:13)
+    at commitRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19275:13)
+[ 1811706ms] ReferenceError: setChannelInboundAgentIdDraft is not defined
+    at http://127.0.0.1:5174/src/App.tsx?t=1775953971636:7418:7
+    at commitHookEffectListMount (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:16913:34)
+    at invokePassiveEffectMountInDEV (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18322:19)
+    at invokeEffectsInDev (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19699:19)
+    at commitDoubleInvokeEffectsInDEV (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19684:15)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19501:13)
+    at flushPassiveEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19445:22)
+    at commitRootImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19414:13)
+    at commitRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19275:13)
+    at performSyncWorkOnRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18893:11)
+[ 1811698ms] [ERROR] The above error occurred in the <App> component:
+
+    at App (http://127.0.0.1:5174/src/App.tsx?t=1775953971636:3259:22)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:14029
+[ 1811698ms] [ERROR] The above error occurred in the <App> component:
+
+    at App (http://127.0.0.1:5174/src/App.tsx?t=1775953971636:3259:22)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:14029
+[ 1811708ms] ReferenceError: setChannelInboundAgentIdDraft is not defined
+    at http://127.0.0.1:5174/src/App.tsx?t=1775953971636:7418:7
+    at commitHookEffectListMount (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:16913:34)
+    at commitPassiveMountOnFiber (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18154:19)
+    at commitPassiveMountEffects_complete (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18127:17)
+    at commitPassiveMountEffects_begin (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18117:15)
+    at commitPassiveMountEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18107:11)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19488:11)
+    at flushPassiveEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19445:22)
+    at commitRootImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19414:13)
+    at commitRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19275:13)
+[ 1844822ms] ReferenceError: setChannelInboundAgentIdDraft is not defined
+    at http://127.0.0.1:5174/src/App.tsx?t=1775954005095:7392:7
+    at commitHookEffectListMount (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:16913:34)
+    at commitPassiveMountOnFiber (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18154:19)
+    at commitPassiveMountEffects_complete (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18127:17)
+    at commitPassiveMountEffects_begin (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18117:15)
+    at commitPassiveMountEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18107:11)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19488:11)
+    at flushPassiveEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19445:22)
+    at commitRootImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19414:13)
+    at commitRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19275:13)
+[ 1844833ms] ReferenceError: setChannelInboundAgentIdDraft is not defined
+    at http://127.0.0.1:5174/src/App.tsx?t=1775954005095:7392:7
+    at commitHookEffectListMount (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:16913:34)
+    at invokePassiveEffectMountInDEV (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18322:19)
+    at invokeEffectsInDev (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19699:19)
+    at commitDoubleInvokeEffectsInDEV (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19684:15)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19501:13)
+    at flushPassiveEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19445:22)
+    at commitRootImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19414:13)
+    at commitRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19275:13)
+    at performSyncWorkOnRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18893:11)
+[ 1844829ms] [ERROR] The above error occurred in the <App> component:
+
+    at App (http://127.0.0.1:5174/src/App.tsx?t=1775954005095:3259:22)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:14029
+[ 1844829ms] [ERROR] The above error occurred in the <App> component:
+
+    at App (http://127.0.0.1:5174/src/App.tsx?t=1775954005095:3259:22)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:14029
+[ 1844833ms] ReferenceError: setChannelInboundAgentIdDraft is not defined
+    at http://127.0.0.1:5174/src/App.tsx?t=1775954005095:7392:7
+    at commitHookEffectListMount (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:16913:34)
+    at commitPassiveMountOnFiber (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18154:19)
+    at commitPassiveMountEffects_complete (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18127:17)
+    at commitPassiveMountEffects_begin (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18117:15)
+    at commitPassiveMountEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:18107:11)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19488:11)
+    at flushPassiveEffects (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19445:22)
+    at commitRootImpl (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19414:13)
+    at commitRoot (http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:19275:13)
+[ 1960912ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5174/src/App.tsx?t=1775954121636:0
+[ 1960914ms] [ERROR] [hmr] Failed to reload /src/App.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:5174/@vite/client:175
+[ 2017916ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5174/src/App.tsx?t=1775954178618:0
+[ 2017917ms] [ERROR] [hmr] Failed to reload /src/App.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:5174/@vite/client:175
+[ 2024624ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5174/src/App.tsx?t=1775954185325:0
+[ 2024624ms] [ERROR] [hmr] Failed to reload /src/App.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:5174/@vite/client:175
+[ 3860045ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5174/@vite/client:559
+[ 3860057ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5174/:0
+[ 3862282ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5174/node_modules/.vite/deps/chunk-XPR23Y44.js?v=55076034:21548

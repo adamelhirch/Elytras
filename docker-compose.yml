@@ -1,102 +1,72 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: ${ELYTRAS_DB_NAME:-elytras}
-      POSTGRES_USER: ${ELYTRAS_DB_USER:-elytras}
-      POSTGRES_PASSWORD: ${ELYTRAS_DB_PASSWORD:-elytras}
-    volumes:
-      - elytras-postgres:/var/lib/postgresql/data
-    ports:
-      - "${ELYTRAS_DB_PORT:-5432}:5432"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${ELYTRAS_DB_USER:-elytras}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # Migration one-shot : tourne une fois puis s'arrête (restart: no)\n  # Lance les migrations Drizzle depuis les sources locales montées en volume.
-  migrate:
-    image: node:22-bookworm-slim
-    working_dir: /repo/packages/db
-    environment:
-      DATABASE_URL: postgres://${ELYTRAS_DB_USER:-elytras}:${ELYTRAS_DB_PASSWORD:-elytras}@postgres:5432/${ELYTRAS_DB_NAME:-elytras}
-    volumes:
-      - ./packages/db/src:/repo/packages/db/src:ro
-      - ./packages/db/migrations:/repo/packages/db/migrations:ro
-      - ./packages/db/package.json:/repo/packages/db/package.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-    command:
-      - /bin/sh
-      - -c
-      - |
-        npm install --no-save tsx drizzle-orm postgres && \
-        node --import tsx/esm src/migrate.ts
-
-  # Init one-shot : fixe les permissions du volume gateway (tourne en root)
-  gateway-init:
-    image: busybox
-    volumes:
-      - openclaw-gateway-data:/data
-    command: ["sh", "-c", "chown -R 1000:1000 /data && chmod 755 /data"]
-    restart: "no"
-
   openclaw-gateway:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     environment:
       HOME: /home/node
       TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
-      # Elytras : sync DB → runtime config
-      DATABASE_URL: postgres://${ELYTRAS_DB_USER:-elytras}:${ELYTRAS_DB_PASSWORD:-elytras}@postgres:5432/${ELYTRAS_DB_NAME:-elytras}
-      ELYTRAS_ENCRYPTION_KEY: ${ELYTRAS_ENCRYPTION_KEY}
-      ELYTRAS_EDITION: ${ELYTRAS_EDITION:-solo}
-      # Control UI sur bind non-loopback: configure explicitement la policy d'origine.
-      ELYTRAS_GATEWAY_CONTROLUI_ALLOW_HOST_FALLBACK: ${ELYTRAS_GATEWAY_CONTROLUI_ALLOW_HOST_FALLBACK:-true}
-      # Optionnel: liste d'origines autorisées (CSV), ex: http://localhost:3000,https://admin.example.com
-      ELYTRAS_GATEWAY_CONTROLUI_ALLOWED_ORIGINS: ${ELYTRAS_GATEWAY_CONTROLUI_ALLOWED_ORIGINS:-}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
+      TZ: ${OPENCLAW_TZ:-UTC}
     volumes:
-      # Volume isolé pour le gateway Docker (pas de montage ~/.openclaw local)
-      # La config vient entièrement de la DB via runtime-sync
-      - openclaw-gateway-data:/home/node/.openclaw
+      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      ## Uncomment the lines below to enable sandbox isolation
+      ## (agents.defaults.sandbox). Requires Docker CLI in the image
+      ## (build with --build-arg OPENCLAW_INSTALL_DOCKER_CLI=1) or use
+      ## scripts/docker/setup.sh with OPENCLAW_SANDBOX=1 for automated setup.
+      ## Set DOCKER_GID to the host's docker group GID (run: stat -c '%g' /var/run/docker.sock).
+      # - /var/run/docker.sock:/var/run/docker.sock
+    # group_add:
+    #   - "${DOCKER_GID:-999}"
     ports:
       - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
       - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
-    user: "1000:1000"
     init: true
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      gateway-init:
-        condition: service_completed_successfully
-    entrypoint:
-      - node
-      - dist/index.js
-      - gateway
-      - --allow-unconfigured
-      - --bind
-      - "${OPENCLAW_GATEWAY_BIND:-lan}"
-      - --port
-      - "18789"
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "gateway",
+        "--bind",
+        "${OPENCLAW_GATEWAY_BIND:-lan}",
+        "--port",
+        "18789",
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
+    network_mode: "service:openclaw-gateway"
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
     environment:
       HOME: /home/node
       TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: ${OPENCLAW_ALLOW_INSECURE_PRIVATE_WS:-}
       BROWSER: echo
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY:-}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
+      TZ: ${OPENCLAW_TZ:-UTC}
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
@@ -104,32 +74,5 @@ services:
     tty: true
     init: true
     entrypoint: ["node", "dist/index.js"]
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    image: elytras-web:local
-    environment:
-      DATABASE_URL: postgres://${ELYTRAS_DB_USER:-elytras}:${ELYTRAS_DB_PASSWORD:-elytras}@postgres:5432/${ELYTRAS_DB_NAME:-elytras}
-      ELYTRAS_ENCRYPTION_KEY: ${ELYTRAS_ENCRYPTION_KEY}
-      ELYTRAS_JWT_SECRET: ${ELYTRAS_JWT_SECRET}
-      ELYTRAS_EDITION: ${ELYTRAS_EDITION:-solo}
-      # URL du gateway. Par defaut: service Docker interne.
-      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-ws://openclaw-gateway:18789}
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      ELYTRAS_GEMINI_OAUTH_CLIENT_ID: ${ELYTRAS_GEMINI_OAUTH_CLIENT_ID:-}
-      ELYTRAS_GEMINI_OAUTH_CLIENT_SECRET: ${ELYTRAS_GEMINI_OAUTH_CLIENT_SECRET:-}
-      NODE_ENV: production
-    ports:
-      - "${ELYTRAS_WEB_PORT:-3000}:3000"
-    restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-
-volumes:
-  elytras-postgres:
-  openclaw-gateway-data:
+      - openclaw-gateway

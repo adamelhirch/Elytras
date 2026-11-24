@@ -1,0 +1,156 @@
+- generic [ref=e3]:
+    - complementary [ref=e4]:
+        - generic [ref=e7]:
+            - generic [ref=e8]: OpenClaw Runtime
+            - heading "Control Tower" [level=1] [ref=e9]
+            - paragraph [ref=e10]: Dashboard custom au-dessus du Control UI natif, sans toucher au code source OpenClaw.
+        - generic [ref=e11]:
+            - generic [ref=e12]:
+                - generic [ref=e13]: Gateway URL
+                - textbox "Gateway URL" [ref=e14]: http://127.0.0.1:18789
+            - generic [ref=e15]:
+                - generic [ref=e16]: Gateway Token
+                - textbox "Gateway Token" [ref=e17]: openclaw-local-token
+        - generic [ref=e18]:
+            - button "Refresh" [ref=e19] [cursor=pointer]
+            - button "Ouvrir native UI" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+            - button "Mission Control Temps reel + kanban" [ref=e22] [cursor=pointer]:
+                - generic [ref=e23]: Mission Control
+                - generic [ref=e24]: Temps reel + kanban
+            - button "Agents Flotte + responsabilites" [ref=e25] [cursor=pointer]:
+                - generic [ref=e26]: Agents
+                - generic [ref=e27]: Flotte + responsabilites
+            - button "Chat Sessions + reprise" [ref=e28] [cursor=pointer]:
+                - generic [ref=e29]: Chat
+                - generic [ref=e30]: Sessions + reprise
+            - button "Files Artifacts et workspace" [ref=e31] [cursor=pointer]:
+                - generic [ref=e32]: Files
+                - generic [ref=e33]: Artifacts et workspace
+            - button "Memory AGENTS.md et surface memoire" [ref=e34] [cursor=pointer]:
+                - generic [ref=e35]: Memory
+                - generic [ref=e36]: AGENTS.md et surface memoire
+            - button "Workspaces Isolation par agent" [ref=e37] [cursor=pointer]:
+                - generic [ref=e38]: Workspaces
+                - generic [ref=e39]: Isolation par agent
+            - button "Skills Catalogue actif" [ref=e40] [cursor=pointer]:
+                - generic [ref=e41]: Skills
+                - generic [ref=e42]: Catalogue actif
+            - button "Providers Modeles et couverture" [ref=e43] [cursor=pointer]:
+                - generic [ref=e44]: Providers
+                - generic [ref=e45]: Modeles et couverture
+            - button "Channels Sorties et cibles" [ref=e46] [cursor=pointer]:
+                - generic [ref=e47]: Channels
+                - generic [ref=e48]: Sorties et cibles
+            - button "Pipelines Builder operateur" [ref=e49] [cursor=pointer]:
+                - generic [ref=e50]: Pipelines
+                - generic [ref=e51]: Builder operateur
+            - button "Cron Jobs Programmation et lanes" [ref=e52] [cursor=pointer]:
+                - generic [ref=e53]: Cron Jobs
+                - generic [ref=e54]: Programmation et lanes
+            - button "Users Proprietaires et roles" [ref=e55] [cursor=pointer]:
+                - generic [ref=e56]: Users
+                - generic [ref=e57]: Proprietaires et roles
+            - button "Teams & Access RBAC et grants" [ref=e58] [cursor=pointer]:
+                - generic [ref=e59]: Teams & Access
+                - generic [ref=e60]: RBAC et grants
+        - generic [ref=e61]:
+            - strong [ref=e62]: Etat connexion
+            - paragraph [ref=e63]: Dashboard branche au gateway OpenClaw.
+            - generic [ref=e64]: Polling 2.5 s pour les vues live.
+    - main [ref=e65]:
+        - generic [ref=e66]:
+            - generic [ref=e67]:
+                - generic [ref=e68]: Operator Overlay
+                - heading "Mission control agent-centric au-dessus d’OpenClaw" [level=2] [ref=e69]
+                - paragraph [ref=e70]: Vue live des agents, sessions, workspaces, fichiers, memoire, pipelines, cron jobs, users, teams et grants. OpenClaw reste le backend natif; ce dashboard ajoute la couche control plane manquante.
+            - generic [ref=e71]:
+                - generic [ref=e72]:
+                    - strong [ref=e73]: Gateway
+                    - paragraph [ref=e74]: http://127.0.0.1:18789
+                - generic [ref=e75]:
+                    - strong [ref=e76]: Token
+                    - paragraph [ref=e77]: open…oken
+                - generic [ref=e78]:
+                    - strong [ref=e79]: Config path
+                    - paragraph [ref=e80]: /tmp/openclaw-control-tower/openclaw.json
+        - generic [ref=e81]:
+            - generic [ref=e82]:
+                - article [ref=e83]:
+                    - generic [ref=e84]: Agents
+                    - strong [ref=e85]: "1"
+                    - paragraph [ref=e86]: 0 en train de bosser
+                - article [ref=e87]:
+                    - generic [ref=e88]: Sessions
+                    - strong [ref=e89]: "1"
+                    - paragraph [ref=e90]: 0 live sur le gateway
+                - article [ref=e91]:
+                    - generic [ref=e92]: Pipelines
+                    - strong [ref=e93]: "0"
+                    - paragraph [ref=e94]: 0 en cours
+                - article [ref=e95]:
+                    - generic [ref=e96]: Cron Jobs
+                    - strong [ref=e97]: "0"
+                    - paragraph [ref=e98]: 0 actifs
+            - generic [ref=e99]:
+                - generic [ref=e100]:
+                    - generic [ref=e102]:
+                        - generic [ref=e103]: Mission Control
+                        - heading "Kanban temps reel pour pipelines et cron jobs" [level=3] [ref=e104]
+                    - generic [ref=e105]:
+                        - article [ref=e106]:
+                            - generic [ref=e107]:
+                                - strong [ref=e108]: Running
+                                - generic [ref=e109]: "0"
+                            - generic [ref=e111]:
+                                - strong [ref=e112]: Lane vide
+                                - paragraph [ref=e113]: Aucun item dans cette colonne.
+                        - article [ref=e114]:
+                            - generic [ref=e115]:
+                                - strong [ref=e116]: Queued
+                                - generic [ref=e117]: "0"
+                            - generic [ref=e119]:
+                                - strong [ref=e120]: Lane vide
+                                - paragraph [ref=e121]: Aucun item dans cette colonne.
+                        - article [ref=e122]:
+                            - generic [ref=e123]:
+                                - strong [ref=e124]: Attention
+                                - generic [ref=e125]: "0"
+                            - generic [ref=e127]:
+                                - strong [ref=e128]: Lane vide
+                                - paragraph [ref=e129]: Aucun item dans cette colonne.
+                        - article [ref=e130]:
+                            - generic [ref=e131]:
+                                - strong [ref=e132]: Paused
+                                - generic [ref=e133]: "0"
+                            - generic [ref=e135]:
+                                - strong [ref=e136]: Lane vide
+                                - paragraph [ref=e137]: Aucun item dans cette colonne.
+                        - article [ref=e138]:
+                            - generic [ref=e139]:
+                                - strong [ref=e140]: Done
+                                - generic [ref=e141]: "0"
+                            - generic [ref=e143]:
+                                - strong [ref=e144]: Lane vide
+                                - paragraph [ref=e145]: Aucun item dans cette colonne.
+                - generic [ref=e146]:
+                    - generic [ref=e148]:
+                        - generic [ref=e149]: Live Agents
+                        - heading "Qui fait quoi maintenant" [level=3] [ref=e150]
+                    - article [ref=e152]:
+                        - generic [ref=e153]:
+                            - strong [ref=e154]: main
+                            - generic [ref=e155]: active
+                        - paragraph [ref=e156]: Derniere activite heartbeat
+                        - generic [ref=e157]: owner adamelhirch · team Operations
+                        - generic [ref=e158]: workspace /tmp/openclaw-control-tower/workspace
+            - generic [ref=e159]:
+                - generic [ref=e161]:
+                    - generic [ref=e162]: Recent Sessions
+                    - heading "Dernieres activites detectees" [level=3] [ref=e163]
+                - button "heartbeat idle Aucun message recent. main · 21/03/2026 02:55:16" [ref=e165] [cursor=pointer]:
+                    - generic [ref=e166]:
+                        - strong [ref=e167]: heartbeat
+                        - generic [ref=e168]: idle
+                    - paragraph [ref=e169]: Aucun message recent.
+                    - generic [ref=e170]: main · 21/03/2026 02:55:16

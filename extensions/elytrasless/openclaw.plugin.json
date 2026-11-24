@@ -1,0 +1,170 @@
+{
+  "id": "elytrasless",
+  "kind": "context-engine",
+  "uiHints": {
+    "contextThreshold": {
+      "label": "Context Threshold",
+      "help": "Fraction of context window that triggers compaction (0.0–1.0)"
+    },
+    "incrementalMaxDepth": {
+      "label": "Incremental Max Depth",
+      "help": "How deep incremental compaction goes (0 = leaf only, -1 = unlimited)"
+    },
+    "freshTailCount": {
+      "label": "Fresh Tail Count",
+      "help": "Number of recent messages protected from compaction"
+    },
+    "dbPath": {
+      "label": "Database Path",
+      "help": "Path to the Elytrasless SQLite database"
+    },
+    "ignoreSessionPatterns": {
+      "label": "Ignored Sessions",
+      "help": "Glob patterns for session keys to exclude from persistence"
+    },
+    "statelessSessionPatterns": {
+      "label": "Stateless Sessions",
+      "help": "Glob patterns for session keys that can read memory but never write to it"
+    },
+    "skipStatelessSessions": {
+      "label": "Skip Stateless Sessions",
+      "help": "When enabled, matching stateless session keys skip persistence"
+    },
+    "summaryModel": {
+      "label": "Summary Model",
+      "help": "Model override for summarization"
+    },
+    "summaryProvider": {
+      "label": "Summary Provider",
+      "help": "Provider override used when summaryModel is a bare model name"
+    },
+    "expansionModel": {
+      "label": "Expansion Model",
+      "help": "Model override for the expansion sub-agent"
+    },
+    "expansionProvider": {
+      "label": "Expansion Provider",
+      "help": "Provider override for the expansion sub-agent"
+    },
+    "storePath": {
+      "label": "Elytras Store Path",
+      "help": "Path to the Elytras control-tower store JSON used to resolve users, teams, and agent bindings.",
+      "advanced": true,
+      "placeholder": "~/.openclaw/control-tower-store.json"
+    },
+    "dataRoot": {
+      "label": "Elytras Data Root",
+      "help": "Root directory for Elytras-managed tenant data such as users/<id>/USER.md and teams/<id>/TEAM.md.",
+      "advanced": true,
+      "placeholder": "~/.openclaw/elytras"
+    },
+    "injectUserContext": {
+      "label": "Inject User Context",
+      "help": "Inject USER.md content for the resolved Elytras user into the runtime system prompt."
+    },
+    "injectTeamContext": {
+      "label": "Inject Team Context",
+      "help": "Inject TEAM.md content for the resolved Elytras team into the runtime system prompt."
+    },
+    "auditLogPath": {
+      "label": "Audit Log Path",
+      "help": "JSONL log written by elytrasless after each turn to trace resolved scope and session activity.",
+      "advanced": true,
+      "placeholder": "~/.openclaw/elytrasless/events.jsonl"
+    },
+    "maxInjectedChars": {
+      "label": "Max Injected Chars",
+      "help": "Maximum characters loaded from each Elytras tenant markdown file before truncation.",
+      "advanced": true,
+      "placeholder": "8000"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "contextThreshold": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "incrementalMaxDepth": {
+        "type": "integer",
+        "minimum": -1
+      },
+      "freshTailCount": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "leafMinFanout": {
+        "type": "integer",
+        "minimum": 2
+      },
+      "condensedMinFanout": {
+        "type": "integer",
+        "minimum": 2
+      },
+      "condensedMinFanoutHard": {
+        "type": "integer",
+        "minimum": 2
+      },
+      "dbPath": {
+        "type": "string"
+      },
+      "ignoreSessionPatterns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "statelessSessionPatterns": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "skipStatelessSessions": {
+        "type": "boolean"
+      },
+      "largeFileThresholdTokens": {
+        "type": "integer",
+        "minimum": 1000
+      },
+      "summaryModel": {
+        "type": "string"
+      },
+      "summaryProvider": {
+        "type": "string"
+      },
+      "expansionModel": {
+        "type": "string"
+      },
+      "expansionProvider": {
+        "type": "string"
+      },
+      "storePath": {
+        "type": "string"
+      },
+      "dataRoot": {
+        "type": "string"
+      },
+      "injectUserContext": {
+        "type": "boolean"
+      },
+      "injectTeamContext": {
+        "type": "boolean"
+      },
+      "auditLogPath": {
+        "type": "string"
+      },
+      "maxInjectedChars": {
+        "type": "number",
+        "minimum": 256,
+        "maximum": 50000
+      }
+    }
+  }
+}

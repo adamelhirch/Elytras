@@ -1,0 +1,2 @@
+Bonjour depuis un fichier texte importe.
+Ligne 2.

@@ -1,0 +1,91 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: OpenClaw Runtime
+      - heading "Control Tower" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Dashboard custom au-dessus du Control UI natif, sans toucher au code source OpenClaw.
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]: Gateway URL
+        - textbox "Gateway URL" [ref=e14]: http://127.0.0.1:18790
+      - generic [ref=e15]:
+        - generic [ref=e16]: Gateway Token
+        - textbox "Gateway Token" [ref=e17]: openclaw-local-token
+    - generic [ref=e18]:
+      - button "Refresh" [ref=e19] [cursor=pointer]
+      - button "Docs OpenClaw" [ref=e20] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Contexte dashboard
+        - combobox "Contexte dashboard" [ref=e24]:
+          - option "Admin local Elytras" [selected]
+      - generic [ref=e25]:
+        - strong [ref=e26]: Admin local Elytras
+        - generic [ref=e27]: Vue root non filtree pour operer le runtime
+        - generic [ref=e28]: teams toutes · agents 0 · destinations 0
+    - generic [ref=e29]:
+      - button "Mission Control Temps reel + kanban" [ref=e30] [cursor=pointer]:
+        - generic [ref=e31]: Mission Control
+        - generic [ref=e32]: Temps reel + kanban
+      - button "Agents Flotte + responsabilites" [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]: Agents
+        - generic [ref=e35]: Flotte + responsabilites
+      - button "Chat Sessions + reprise" [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]: Chat
+        - generic [ref=e38]: Sessions + reprise
+      - button "Files Artifacts et workspace" [ref=e39] [cursor=pointer]:
+        - generic [ref=e40]: Files
+        - generic [ref=e41]: Artifacts et workspace
+      - button "Memory AGENTS.md et surface memoire" [ref=e42] [cursor=pointer]:
+        - generic [ref=e43]: Memory
+        - generic [ref=e44]: AGENTS.md et surface memoire
+      - button "Runtime Env vars + backend local" [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]: Runtime
+        - generic [ref=e47]: Env vars + backend local
+      - button "Workspaces Isolation par agent" [ref=e48] [cursor=pointer]:
+        - generic [ref=e49]: Workspaces
+        - generic [ref=e50]: Isolation par agent
+      - button "Skills Catalogue actif" [ref=e51] [cursor=pointer]:
+        - generic [ref=e52]: Skills
+        - generic [ref=e53]: Catalogue actif
+      - button "Providers Modeles et couverture" [ref=e54] [cursor=pointer]:
+        - generic [ref=e55]: Providers
+        - generic [ref=e56]: Modeles et couverture
+      - button "Channels Sorties et cibles" [ref=e57] [cursor=pointer]:
+        - generic [ref=e58]: Channels
+        - generic [ref=e59]: Sorties et cibles
+      - button "Pipelines Builder operateur" [ref=e60] [cursor=pointer]:
+        - generic [ref=e61]: Pipelines
+        - generic [ref=e62]: Builder operateur
+      - button "Cron Jobs Programmation et lanes" [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]: Cron Jobs
+        - generic [ref=e65]: Programmation et lanes
+      - button "Users Proprietaires et roles" [ref=e66] [cursor=pointer]:
+        - generic [ref=e67]: Users
+        - generic [ref=e68]: Proprietaires et roles
+      - button "Teams & Access RBAC et grants" [ref=e69] [cursor=pointer]:
+        - generic [ref=e70]: Teams & Access
+        - generic [ref=e71]: RBAC et grants
+    - generic [ref=e72]:
+      - strong [ref=e73]: Etat connexion
+      - paragraph [ref=e74]: Connexion en cours.
+      - generic [ref=e75]: Polling 2.5 s pour les vues live.
+  - main [ref=e76]:
+    - generic [ref=e77]:
+      - generic [ref=e78]:
+        - generic [ref=e79]: Operator Overlay
+        - heading "Mission control agent-centric au-dessus d’OpenClaw" [level=2] [ref=e80]
+        - paragraph [ref=e81]: Vue live des agents, sessions, workspaces, fichiers, memoire, pipelines, cron jobs, users, teams et grants. OpenClaw reste le backend natif; ce dashboard ajoute la couche control plane manquante.
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - strong [ref=e84]: Gateway
+          - paragraph [ref=e85]: http://127.0.0.1:18790
+        - generic [ref=e86]:
+          - strong [ref=e87]: Token
+          - paragraph [ref=e88]: "***"
+        - generic [ref=e89]:
+          - strong [ref=e90]: Config path
+          - paragraph [ref=e91]: n/a
+    - generic [ref=e93]:
+      - strong [ref=e94]: Chargement
+      - paragraph [ref=e95]: Initialisation du dashboard et connexion au gateway OpenClaw.

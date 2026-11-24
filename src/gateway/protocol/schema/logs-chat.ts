@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { NonEmptyString } from "./primitives.js";
+import { ChatSendSessionKeyString, InputProvenanceSchema, NonEmptyString } from "./primitives.js";
 
 export const LogsTailParamsSchema = Type.Object(
   {
@@ -33,16 +33,14 @@ export const ChatHistoryParamsSchema = Type.Object(
 
 export const ChatSendParamsSchema = Type.Object(
   {
-    sessionKey: NonEmptyString,
+    sessionKey: ChatSendSessionKeyString,
     message: Type.String(),
-    // Optional prompt body used only for agent inference.
-    // Useful when clients need to inject private context without changing
-    // transcript-visible user text.
-    bodyForAgent: Type.Optional(Type.String()),
     thinking: Type.Optional(Type.String()),
     deliver: Type.Optional(Type.Boolean()),
     attachments: Type.Optional(Type.Array(Type.Unknown())),
     timeoutMs: Type.Optional(Type.Integer({ minimum: 0 })),
+    systemInputProvenance: Type.Optional(InputProvenanceSchema),
+    systemProvenanceReceipt: Type.Optional(Type.String()),
     idempotencyKey: NonEmptyString,
   },
   { additionalProperties: false },

@@ -1,0 +1,115 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: OpenClaw Runtime
+        - heading "Control Tower" [level=1] [ref=e10]
+        - paragraph [ref=e11]: Overlay Elytras pour gouvernance, memoire projet et operations agent-centriques.
+      - generic [ref=e12]:
+        - article [ref=e13]:
+          - generic [ref=e14]: Etat
+          - strong [ref=e15]: Sync
+          - generic [ref=e16]: http://127.0.0.1:18789
+        - article [ref=e17]:
+          - generic [ref=e18]: Acteur
+          - strong [ref=e19]: Admin local Elytras
+          - generic [ref=e20]: Vue root non filtree
+        - article [ref=e21]:
+          - generic [ref=e22]: Equipe
+          - strong [ref=e23]: Toutes les equipes
+          - generic [ref=e24]: 0 agent(s)
+        - article [ref=e25]:
+          - generic [ref=e26]: Memoire
+          - strong [ref=e27]: Perso / agent
+          - generic [ref=e28]: 0 destination(s)
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]: Contexte dashboard
+        - combobox "Contexte dashboard" [ref=e32]:
+          - option "Admin local Elytras" [selected]
+      - generic [ref=e33]:
+        - generic [ref=e34]: Memoire projet
+        - combobox "Memoire projet" [ref=e35]:
+          - option "Aucun projet partage" [selected]
+      - generic [ref=e36]:
+        - strong [ref=e37]: Admin local Elytras
+        - generic [ref=e38]:
+          - generic [ref=e39]: Role
+          - generic [ref=e40]: Vue root non filtree
+          - generic [ref=e41]: Teams
+          - generic [ref=e42]: Toutes les equipes
+          - generic [ref=e43]: Memoire
+          - generic [ref=e44]: Perso / agent
+    - generic [ref=e45]:
+      - button "Mission Control Temps reel + kanban" [ref=e46] [cursor=pointer]:
+        - generic [ref=e47]: Mission Control
+        - generic [ref=e48]: Temps reel + kanban
+      - button "Agents Flotte + responsabilites" [ref=e49] [cursor=pointer]:
+        - generic [ref=e50]: Agents
+        - generic [ref=e51]: Flotte + responsabilites
+      - button "Chat Sessions + reprise" [ref=e52] [cursor=pointer]:
+        - generic [ref=e53]: Chat
+        - generic [ref=e54]: Sessions + reprise
+      - button "Files Artifacts et workspace" [ref=e55] [cursor=pointer]:
+        - generic [ref=e56]: Files
+        - generic [ref=e57]: Artifacts et workspace
+      - button "Memory AGENTS.md et surface memoire" [ref=e58] [cursor=pointer]:
+        - generic [ref=e59]: Memory
+        - generic [ref=e60]: AGENTS.md et surface memoire
+      - button "Runtime Env vars + backend local" [ref=e61] [cursor=pointer]:
+        - generic [ref=e62]: Runtime
+        - generic [ref=e63]: Env vars + backend local
+      - button "Workspaces Isolation par agent" [ref=e64] [cursor=pointer]:
+        - generic [ref=e65]: Workspaces
+        - generic [ref=e66]: Isolation par agent
+      - button "Skills Catalogue actif" [ref=e67] [cursor=pointer]:
+        - generic [ref=e68]: Skills
+        - generic [ref=e69]: Catalogue actif
+      - button "Providers Modeles et couverture" [ref=e70] [cursor=pointer]:
+        - generic [ref=e71]: Providers
+        - generic [ref=e72]: Modeles et couverture
+      - button "Channels Sorties et cibles" [ref=e73] [cursor=pointer]:
+        - generic [ref=e74]: Channels
+        - generic [ref=e75]: Sorties et cibles
+      - button "Pipelines Builder operateur" [ref=e76] [cursor=pointer]:
+        - generic [ref=e77]: Pipelines
+        - generic [ref=e78]: Builder operateur
+      - button "Cron Jobs Programmation et lanes" [ref=e79] [cursor=pointer]:
+        - generic [ref=e80]: Cron Jobs
+        - generic [ref=e81]: Programmation et lanes
+      - button "Users Proprietaires et roles" [ref=e82] [cursor=pointer]:
+        - generic [ref=e83]: Users
+        - generic [ref=e84]: Proprietaires et roles
+      - button "Teams & Access RBAC et grants" [ref=e85] [cursor=pointer]:
+        - generic [ref=e86]: Teams & Access
+        - generic [ref=e87]: RBAC et grants
+    - group [ref=e88]:
+      - generic "Connexion gateway URL, token, refresh et docs" [ref=e89] [cursor=pointer]:
+        - generic [ref=e90]: Connexion gateway
+        - generic [ref=e91]: URL, token, refresh et docs
+  - main [ref=e92]:
+    - generic [ref=e93]:
+      - generic [ref=e94]:
+        - generic [ref=e95]: Vue active
+        - heading "Mission Control" [level=2] [ref=e96]
+        - paragraph [ref=e97]: Temps reel + kanban. Vue operateur globale sur le runtime local, sans filtre de gouvernance.
+      - generic [ref=e98]:
+        - article [ref=e99]:
+          - generic [ref=e100]: Gateway
+          - strong [ref=e101]: sync
+          - generic [ref=e102]: http://127.0.0.1:18789
+        - article [ref=e103]:
+          - generic [ref=e104]: User
+          - strong [ref=e105]: Admin local Elytras
+          - generic [ref=e106]: Vue root non filtree
+        - article [ref=e107]:
+          - generic [ref=e108]: Equipe
+          - strong [ref=e109]: Toutes les equipes
+          - generic [ref=e110]: scope courant
+        - article [ref=e111]:
+          - generic [ref=e112]: Memoire
+          - strong [ref=e113]: Perso / agent
+          - generic [ref=e114]: Mission Control
+    - generic [ref=e116]:
+      - strong [ref=e117]: Chargement
+      - paragraph [ref=e118]: Initialisation du dashboard et connexion au gateway OpenClaw.

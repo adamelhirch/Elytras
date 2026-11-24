@@ -1,0 +1,183 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: OpenClaw Runtime
+      - heading "Control Tower" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Dashboard custom au-dessus du Control UI natif, sans toucher au code source OpenClaw.
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]: Gateway URL
+        - textbox "Gateway URL" [ref=e14]: http://127.0.0.1:18790
+      - generic [ref=e15]:
+        - generic [ref=e16]: Gateway Token
+        - textbox "Gateway Token" [ref=e17]: openclaw-local-token
+    - generic [ref=e18]:
+      - button "Refresh" [ref=e19] [cursor=pointer]
+      - button "Docs OpenClaw" [ref=e20] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Contexte dashboard
+        - combobox "Contexte dashboard" [ref=e24]:
+          - option "Admin local Elytras" [selected]
+          - option "Adam · admin"
+      - generic [ref=e25]:
+        - strong [ref=e26]: Admin local Elytras
+        - generic [ref=e27]: Vue root non filtree pour operer le runtime
+        - generic [ref=e28]: teams toutes · agents 2 · destinations 1
+    - generic [ref=e29]:
+      - button "Mission Control Temps reel + kanban" [ref=e30] [cursor=pointer]:
+        - generic [ref=e31]: Mission Control
+        - generic [ref=e32]: Temps reel + kanban
+      - button "Agents Flotte + responsabilites" [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]: Agents
+        - generic [ref=e35]: Flotte + responsabilites
+      - button "Chat Sessions + reprise" [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]: Chat
+        - generic [ref=e38]: Sessions + reprise
+      - button "Files Artifacts et workspace" [ref=e39] [cursor=pointer]:
+        - generic [ref=e40]: Files
+        - generic [ref=e41]: Artifacts et workspace
+      - button "Memory AGENTS.md et surface memoire" [ref=e42] [cursor=pointer]:
+        - generic [ref=e43]: Memory
+        - generic [ref=e44]: AGENTS.md et surface memoire
+      - button "Runtime Env vars + backend local" [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]: Runtime
+        - generic [ref=e47]: Env vars + backend local
+      - button "Workspaces Isolation par agent" [ref=e48] [cursor=pointer]:
+        - generic [ref=e49]: Workspaces
+        - generic [ref=e50]: Isolation par agent
+      - button "Skills Catalogue actif" [ref=e51] [cursor=pointer]:
+        - generic [ref=e52]: Skills
+        - generic [ref=e53]: Catalogue actif
+      - button "Providers Modeles et couverture" [ref=e54] [cursor=pointer]:
+        - generic [ref=e55]: Providers
+        - generic [ref=e56]: Modeles et couverture
+      - button "Channels Sorties et cibles" [ref=e57] [cursor=pointer]:
+        - generic [ref=e58]: Channels
+        - generic [ref=e59]: Sorties et cibles
+      - button "Pipelines Builder operateur" [ref=e60] [cursor=pointer]:
+        - generic [ref=e61]: Pipelines
+        - generic [ref=e62]: Builder operateur
+      - button "Cron Jobs Programmation et lanes" [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]: Cron Jobs
+        - generic [ref=e65]: Programmation et lanes
+      - button "Users Proprietaires et roles" [ref=e66] [cursor=pointer]:
+        - generic [ref=e67]: Users
+        - generic [ref=e68]: Proprietaires et roles
+      - button "Teams & Access RBAC et grants" [ref=e69] [cursor=pointer]:
+        - generic [ref=e70]: Teams & Access
+        - generic [ref=e71]: RBAC et grants
+    - generic [ref=e72]:
+      - strong [ref=e73]: Etat connexion
+      - paragraph [ref=e74]: Dashboard branche au gateway OpenClaw.
+      - generic [ref=e75]: Polling 2.5 s pour les vues live.
+  - main [ref=e76]:
+    - generic [ref=e77]:
+      - generic [ref=e78]:
+        - generic [ref=e79]: Operator Overlay
+        - heading "Mission control agent-centric au-dessus d’OpenClaw" [level=2] [ref=e80]
+        - paragraph [ref=e81]: Vue live des agents, sessions, workspaces, fichiers, memoire, pipelines, cron jobs, users, teams et grants. OpenClaw reste le backend natif; ce dashboard ajoute la couche control plane manquante.
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - strong [ref=e84]: Gateway
+          - paragraph [ref=e85]: http://127.0.0.1:18790
+        - generic [ref=e86]:
+          - strong [ref=e87]: Token
+          - paragraph [ref=e88]: open…oken
+        - generic [ref=e89]:
+          - strong [ref=e90]: Config path
+          - paragraph [ref=e91]: /tmp/openclaw-control-tower/openclaw.json
+    - generic [ref=e92]:
+      - generic [ref=e219]:
+        - generic [ref=e220]:
+          - generic [ref=e221]:
+            - generic [ref=e222]: Skills
+            - heading "Gestion shared + par agent des dossiers SKILL.md" [level=3] [ref=e223]
+          - generic [ref=e224]:
+            - button "Refresh skills" [ref=e225] [cursor=pointer]
+            - button "Nouveau skill" [ref=e226] [cursor=pointer]
+            - button "Sauvegarder" [disabled] [ref=e227] [cursor=pointer]
+            - button "Supprimer" [ref=e228] [cursor=pointer]
+        - generic [ref=e229]:
+          - strong [ref=e230]: Scopes reels du runtime
+          - paragraph [ref=e231]: Le dashboard gere les skills partages dans ~/.openclaw/skills et ~/.agents/skills, plus les skills lies a chaque agent dans workspace/skills et workspace/.agents/skills.
+          - generic [ref=e232]:
+            - generic [ref=e233]: 6 bibliotheque(s)
+            - generic [ref=e234]: 1 skill(s) geres
+            - generic [ref=e235]: 11 skill(s) resolves par le runtime
+          - generic [ref=e236]:
+            - generic [ref=e237]: shared extraDirs
+            - generic [ref=e238]: shared ~/.openclaw/skills
+            - generic [ref=e239]: shared ~/.agents/skills
+            - generic [ref=e240]: agent .agents/skills
+            - generic [ref=e241]: agent workspace/skills
+      - generic [ref=e242]:
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - button "Shared" [ref=e245]
+            - button "Par agent" [active] [ref=e246]
+          - generic [ref=e298]:
+            - generic [ref=e299]: Agent
+            - combobox "Agent" [ref=e300]:
+              - option "main"
+              - option "Jarvis" [selected]
+          - generic [ref=e247]:
+            - generic [ref=e248]: Bibliotheque
+            - combobox "Bibliotheque" [ref=e249]:
+              - option "Jarvis · workspace" [selected]
+              - option "Jarvis · overlay"
+          - generic [ref=e301]:
+            - strong [ref=e302]: Jarvis · workspace
+            - paragraph [ref=e303]: Skills propres a l'agent dans /tmp/openclaw-control-tower/jarvis-workspace/skills.
+            - code [ref=e304]: /tmp/openclaw-control-tower/jarvis-workspace/skills
+          - group [ref=e305]:
+            - generic "Importer des skills" [ref=e306] [cursor=pointer]
+            - paragraph [ref=e307]: Accepte un repo git, un ZIP distant, un ZIP local ou un simple fichier SKILL.md.
+            - generic [ref=e308]:
+              - generic [ref=e309]: Source
+              - combobox "Source" [ref=e310]:
+                - option "Repo git"
+                - option "ZIP distant"
+                - option "ZIP local" [selected]
+                - option "SKILL.md brut"
+            - generic [ref=e366]:
+              - generic [ref=e367]: Archive locale
+              - button "Archive locale" [ref=e368]
+            - generic [ref=e369]:
+              - generic [ref=e370]: Sous-dossier optionnel
+              - textbox "Sous-dossier optionnel" [ref=e371]:
+                - /placeholder: skills/my-skill
+            - generic [ref=e321]:
+              - checkbox "Ecraser un dossier existant si le nom collide" [ref=e322]
+              - generic [ref=e323]: Ecraser un dossier existant si le nom collide
+            - button "Importer dans cette bibliotheque" [disabled] [ref=e324] [cursor=pointer]
+          - button "adamhub-assistant callable Sans description pour l’instant. adamhub-assistant · 06/04/2026 18:13:34" [ref=e341] [cursor=pointer]:
+            - generic [ref=e342]:
+              - strong [ref=e343]: adamhub-assistant
+              - generic [ref=e344]: callable
+            - paragraph [ref=e345]: Sans description pour l’instant.
+            - generic [ref=e346]: adamhub-assistant · 06/04/2026 18:13:34
+        - generic [ref=e278]:
+          - generic [ref=e279]:
+            - strong [ref=e280]: adamhub-assistant
+            - generic [ref=e281]: synchro
+          - generic [ref=e350]:
+            - generic [ref=e351]: Library
+            - generic [ref=e352]: Jarvis · workspace
+            - generic [ref=e353]: Source runtime
+            - generic [ref=e354]: openclaw-workspace
+            - generic [ref=e355]: Path
+            - code [ref=e356]: /tmp/openclaw-control-tower/jarvis-workspace/skills/adamhub-assistant/SKILL.md
+          - generic [ref=e357]:
+            - generic [ref=e358]: Dossier du skill
+            - textbox "Dossier du skill" [ref=e359]:
+              - /placeholder: my-skill
+              - text: adamhub-assistant
+          - generic [ref=e360]:
+            - generic [ref=e361]: SKILL.md
+            - textbox "SKILL.md" [ref=e362]:
+              - /placeholder: Contenu du skill...
+              - text: "# AdamHUB Assistant Master Skill Use this as the primary skill when an AI assistant must manage AdamHUB as one coherent personal-life system. The source of truth is always the live manifest returned by: - `GET /api/v1/skill/manifest` As of `2026-03-29`, the skill surface exposes `99` actions. ## 1) Runtime contract - API base URL: `ADAMHUB_API_URL` - Compatibility alias: `ADAMHUB_URL` - Auth header on every protected request: `X-API-Key: <ADAMHUB_API_KEY>` - Health endpoint: `GET /health` - Manifest endpoint: `GET /api/v1/skill/manifest` - Unified action endpoint: `POST /api/v1/skill/execute` - Supermarket store registry: `supermarket.list_stores` - Video transcript intake: `video.fetch` Runtime URL rules: - Resolve the base URL from `ADAMHUB_API_URL` first, then fall back to `ADAMHUB_URL` if needed. - If the assistant runtime is outside the AdamHUB Docker network, use the public AdamHUB URL in `ADAMHUB_API_URL`. - If the assistant runtime runs in the same Docker network, `ADAMHUB_API_URL=http://adamhub-api:8000` is valid. - Never use `127.0.0.1` unless the assistant runtime and AdamHUB run in the exact same container namespace. - If either `ADAMHUB_API_URL` or `ADAMHUB_URL` is already present with `ADAMHUB_API_KEY`, do not ask the user which variables are needed. Test the service first. ## 2) Core objective Turn natural language requests into deterministic AdamHUB actions while preserving: - correctness - safety - traceability - compact user communication ## 3) Startup routine At session start: 1. Assume \"adamhub\" refers to this AdamHUB service when this skill is loaded. 2. Read `ADAMHUB_API_URL`, or fall back to `ADAMHUB_URL`. 3. Call `GET /health`. 4. Call `GET /api/v1/skill/manifest`. 5. Cache the `actions` list and each `input_schema`. 6. If the manifest fails, stop all write attempts. ## 4) Universal execution loop For each request: 1. Classify intent as `read`, `write`, `multi-step`, or `unclear`. 2. Ask one short clarifying question only if a required field is missing or the target is ambiguous. 3. Never repeat the same clarifying question more than once. If the user repeats the same request unchanged, execute the safest viable interpretation. 4. Resolve ids from live data, never by guessing. 5. Select only actions that exist in the current manifest. 6. Validate the payload against the manifest schema and domain rules. 7. Ask for confirmation before risky writes. 8. Execute. 9. On failure, inspect `detail`, recover once, and retry once. 10. Return a concise result with ids and key fields. ## 5) Risk policy Require explicit confirmation before: - high-value finance writes - destructive deletes (`recipe.delete`, `grocery.delete_item`, `pantry.delete_item`, `fitness.delete_session`, `patrimony.delete_account`, `patrimony.delete_goal`, etc.) - habit deactivation - any bulk-like request - any ambiguous target resolution Never perform destructive writes on implicit intent. ## 6) Action routing map - global status -> `dashboard.overview` - tasks -> `task.create|task.list|task.update|task.complete` - finances -> `finance.add_transaction|finance.list_transactions|finance.create_budget|finance.list_budgets|finance.month_summary` - patrimony -> `patrimony.overview|patrimony.list_accounts|patrimony.add_account|patrimony.update_account|patrimony.delete_account|patrimony.list_goals|patrimony.add_goal|patrimony.update_goal|patrimony.delete_goal` - groceries -> `supermarket.list_stores|supermarket.search|grocery.add_item|grocery.list_items|grocery.update_item|grocery.check_item|grocery.delete_item` - pantry -> `pantry.add_item|pantry.list_items|pantry.update_item|pantry.consume_item|pantry.delete_item|pantry.overview` - recipes -> `recipe.add|recipe.list|recipe.get|recipe.update|recipe.confirm_cooked|recipe.delete` - meal planning -> `meal_plan.add|meal_plan.list|meal_plan.update|meal_plan.delete|meal_plan.sync_groceries|meal_plan.confirm_cooked|meal_plan.unconfirm_cooked|meal_plan.log_cooked` - calendar -> `calendar.add_item|calendar.list_items|calendar.update_item|calendar.delete_item|calendar.agenda|calendar.sync|calendar.due_reminders|calendar.ack_reminder` - fitness -> `fitness.overview|fitness.list_sessions|fitness.create_session|fitness.update_session|fitness.complete_session|fitness.delete_session|fitness.list_measurements|fitness.add_measurement|fitness.update_measurement|fitness.delete_measurement` - habits / routine -> `habit.create|habit.list|habit.set_active|habit.log|habit.list_logs` - goals -> `goal.create|goal.list|goal.get|goal.update|goal.add_milestone|goal.list_milestones|goal.update_milestone` - events -> `event.create|event.list|event.upcoming|event.get|event.update|event.delete` - subscriptions -> `subscription.create|subscription.list|subscription.get|subscription.update|subscription.upcoming|subscription.projection` - notes -> `note.create|note.list|note.get|note.update|note.delete|note.journal` - video ingestion -> `video.fetch` ## 7) Domain rules you must respect ### Grocery and supermarket rules - Do not fabricate store metadata. - If the user wants a store-backed grocery or pantry item, run `supermarket.search` first. - If no usable result exists, create a generic item instead of forcing a fake store match. ### Recipe and pantry rules - `recipe.add` and `recipe.update` can store custom ingredients and store-backed ingredients. - Planning a meal does not consume pantry. - `meal_plan.confirm_cooked` and `recipe.confirm_cooked` do consume pantry. - `meal_plan.unconfirm_cooked` restores previously consumed pantry stock. ### Calendar rules - AdamHUB enforces non-overlap across tasks, meals, events, subscriptions, manual items, and fitness sessions. - When a create/update fails with an overlap error, propose a new free slot rather than insisting on the same one. ### Fitness rules - Sessions can contain exercises tracked by reps or by duration. - Fitness sessions also participate in calendar conflict validation. ### Tasks and routine rules - Use `task.*` only for one-time work. - Use `habit.*` for recurring routines, rituals, and habits. - Do not duplicate a recurring routine into normal tasks unless the user explicitly wants that downgrade. - If the user asks for a task at a specific datetime or duration, stay in `task.create` or `task.update` with `due_at` and `estimated_minutes`. - Do not use `calendar.add_item` as a substitute for a real task request. - If the user asks for steps or a checklist, store them in `subtasks`. - Keep `description` for freeform notes only. - If the user says \"recreate\" and the only missing detail is the exact step content, ask once. If they repeat the same request unchanged, use a neutral numbered placeholder list rather than looping. ### Video rules - `video.fetch` returns transcript + metadata only. - The assistant is responsible for recipe extraction from the transcript. ## 8) Field normalization Normalize before calling the API: - booleans from user language to `true/false` - ids to integers when the schema expects integers - floats with dot decimal - `YYYY-MM` for budgets - `YYYY-MM-DD` for date-only values - ISO 8601 UTC for datetimes whenever possible If a required field is missing, ask instead of guessing. ## 9) ID resolution strategy When the user does not provide an id: - task id -> `task.list` - grocery item id -> `grocery.list_items` - pantry item id -> `pantry.list_items` - recipe id -> `recipe.list` - meal plan id -> `meal_plan.list` - calendar item id -> `calendar.list_items` or `calendar.agenda` - fitness session id -> `fitness.list_sessions` - fitness measurement id -> `fitness.list_measurements` - patrimony account id -> `patrimony.list_accounts` - patrimony goal id -> `patrimony.list_goals` - habit id -> `habit.list` - goal id -> `goal.list` - event id -> `event.list` - subscription id -> `subscription.list` - note id -> `note.list` Never invent ids. ## 10) Playbook shortcuts ### Meal + shopping 1. `recipe.list` 2. `recipe.get` for the chosen recipe 3. `meal_plan.add` with `auto_add_missing_ingredients=true` if the user wants it scheduled 4. Inspect missing ingredients 5. `supermarket.search` 6. Add groceries only from selected results or fall back to generic items ### Video to recipe 1. `video.fetch` 2. Infer recipe structure from transcript and description 3. `recipe.add` or `recipe.update` 4. If planning is requested, `meal_plan.add` 5. If shopping is requested, search the supermarket first ### Fitness week setup 1. `fitness.overview` 2. `fitness.list_sessions` 3. `calendar.list_items` or `calendar.agenda` if slot validation is needed 4. `fitness.create_session` for approved slots 5. `fitness.complete_session` only after the workout is actually done ### Patrimony review 1. `patrimony.overview` 2. `patrimony.list_accounts` 3. `patrimony.list_goals` 4. Optional updates with `patrimony.update_account` or `patrimony.update_goal` ### Daily agenda 1. `calendar.sync` 2. `calendar.agenda` 3. `calendar.due_reminders` 4. `task.list` with `only_open=true` if the user wants execution planning More detail lives in `references/playbooks.md`. ## 11) Error handling If the API returns non-2xx: 1. Read `detail` exactly. 2. Classify the failure: - auth error - validation error - missing id / target not found - overlap / business rule conflict - unknown action 3. Refresh the relevant list or manifest if needed. 4. Retry once with a corrected payload. 5. If it still fails, surface the blocker and stop. Detailed recovery notes: - `references/error-recovery.md` ## 12) Response style After a successful write: - mention the action - mention the primary id - mention 2 to 4 meaningful fields - optionally suggest one next step After a read: - summarize the main signal first - then list the most relevant items - avoid raw JSON unless explicitly requested ## 13) Privacy and safety constraints - Never expose `ADAMHUB_API_KEY`. - Never print secrets. - Never fabricate finance amounts. - Never fabricate supermarket product metadata. - Never silently consume pantry stock. - Never bypass conflict rules by pretending a slot is free. ## 14) Quick action index - `dashboard.overview` - `task.create|task.list|task.update|task.complete` - `finance.add_transaction|finance.list_transactions|finance.create_budget|finance.list_budgets|finance.month_summary` - `fitness.overview|fitness.list_sessions|fitness.create_session|fitness.update_session|fitness.complete_session|fitness.delete_session|fitness.list_measurements|fitness.add_measurement|fitness.update_measurement|fitness.delete_measurement` - `supermarket.list_stores|supermarket.search` - `grocery.add_item|grocery.list_items|grocery.update_item|grocery.check_item|grocery.delete_item` - `video.fetch` - `recipe.add|recipe.list|recipe.get|recipe.update|recipe.confirm_cooked|recipe.delete` - `meal_plan.add|meal_plan.list|meal_plan.update|meal_plan.delete|meal_plan.sync_groceries|meal_plan.confirm_cooked|meal_plan.unconfirm_cooked|meal_plan.log_cooked` - `calendar.add_item|calendar.list_items|calendar.update_item|calendar.delete_item|calendar.agenda|calendar.sync|calendar.due_reminders|calendar.ack_reminder` - `habit.create|habit.list|habit.set_active|habit.log|habit.list_logs` - `goal.create|goal.list|goal.get|goal.update|goal.add_milestone|goal.list_milestones|goal.update_milestone` - `event.create|event.list|event.upcoming|event.get|event.update|event.delete` - `subscription.create|subscription.list|subscription.get|subscription.update|subscription.upcoming|subscription.projection` - `patrimony.overview|patrimony.list_accounts|patrimony.add_account|patrimony.update_account|patrimony.delete_account|patrimony.list_goals|patrimony.add_goal|patrimony.update_goal|patrimony.delete_goal` - `pantry.add_item|pantry.list_items|pantry.update_item|pantry.consume_item|pantry.delete_item|pantry.overview` - `note.create|note.list|note.get|note.update|note.delete|note.journal`"
+          - generic [ref=e363]:
+            - strong [ref=e364]: Comportement runtime
+            - paragraph [ref=e365]: Les changements sont ecrits directement dans la bibliotheque choisie. OpenClaw recharge ensuite ces skills via son watcher natif ou au prochain nouveau run.

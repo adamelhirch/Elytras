@@ -1,0 +1,179 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: OpenClaw Runtime
+      - heading "Control Tower" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Dashboard custom au-dessus du Control UI natif, sans toucher au code source OpenClaw.
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]: Gateway URL
+        - textbox "Gateway URL" [ref=e14]: http://127.0.0.1:18790
+      - generic [ref=e15]:
+        - generic [ref=e16]: Gateway Token
+        - textbox "Gateway Token" [ref=e17]: openclaw-local-token
+    - generic [ref=e18]:
+      - button "Refresh" [ref=e19] [cursor=pointer]
+      - button "Docs OpenClaw" [ref=e20] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Contexte dashboard
+        - combobox "Contexte dashboard" [ref=e24]:
+          - option "Admin local Elytras" [selected]
+          - option "Adam · admin"
+      - generic [ref=e25]:
+        - strong [ref=e26]: Admin local Elytras
+        - generic [ref=e27]: Vue root non filtree pour operer le runtime
+        - generic [ref=e28]: teams toutes · agents 2 · destinations 1
+    - generic [ref=e29]:
+      - button "Mission Control Temps reel + kanban" [ref=e30] [cursor=pointer]:
+        - generic [ref=e31]: Mission Control
+        - generic [ref=e32]: Temps reel + kanban
+      - button "Agents Flotte + responsabilites" [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]: Agents
+        - generic [ref=e35]: Flotte + responsabilites
+      - button "Chat Sessions + reprise" [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]: Chat
+        - generic [ref=e38]: Sessions + reprise
+      - button "Files Artifacts et workspace" [ref=e39] [cursor=pointer]:
+        - generic [ref=e40]: Files
+        - generic [ref=e41]: Artifacts et workspace
+      - button "Memory AGENTS.md et surface memoire" [ref=e42] [cursor=pointer]:
+        - generic [ref=e43]: Memory
+        - generic [ref=e44]: AGENTS.md et surface memoire
+      - button "Runtime Env vars + backend local" [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]: Runtime
+        - generic [ref=e47]: Env vars + backend local
+      - button "Workspaces Isolation par agent" [ref=e48] [cursor=pointer]:
+        - generic [ref=e49]: Workspaces
+        - generic [ref=e50]: Isolation par agent
+      - button "Skills Catalogue actif" [active] [ref=e51] [cursor=pointer]:
+        - generic [ref=e52]: Skills
+        - generic [ref=e53]: Catalogue actif
+      - button "Providers Modeles et couverture" [ref=e54] [cursor=pointer]:
+        - generic [ref=e55]: Providers
+        - generic [ref=e56]: Modeles et couverture
+      - button "Channels Sorties et cibles" [ref=e57] [cursor=pointer]:
+        - generic [ref=e58]: Channels
+        - generic [ref=e59]: Sorties et cibles
+      - button "Pipelines Builder operateur" [ref=e60] [cursor=pointer]:
+        - generic [ref=e61]: Pipelines
+        - generic [ref=e62]: Builder operateur
+      - button "Cron Jobs Programmation et lanes" [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]: Cron Jobs
+        - generic [ref=e65]: Programmation et lanes
+      - button "Users Proprietaires et roles" [ref=e66] [cursor=pointer]:
+        - generic [ref=e67]: Users
+        - generic [ref=e68]: Proprietaires et roles
+      - button "Teams & Access RBAC et grants" [ref=e69] [cursor=pointer]:
+        - generic [ref=e70]: Teams & Access
+        - generic [ref=e71]: RBAC et grants
+    - generic [ref=e72]:
+      - strong [ref=e73]: Etat connexion
+      - paragraph [ref=e74]: Dashboard branche au gateway OpenClaw.
+      - generic [ref=e75]: Polling 2.5 s pour les vues live.
+  - main [ref=e76]:
+    - generic [ref=e77]:
+      - generic [ref=e78]:
+        - generic [ref=e79]: Operator Overlay
+        - heading "Mission control agent-centric au-dessus d’OpenClaw" [level=2] [ref=e80]
+        - paragraph [ref=e81]: Vue live des agents, sessions, workspaces, fichiers, memoire, pipelines, cron jobs, users, teams et grants. OpenClaw reste le backend natif; ce dashboard ajoute la couche control plane manquante.
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - strong [ref=e84]: Gateway
+          - paragraph [ref=e85]: http://127.0.0.1:18790
+        - generic [ref=e86]:
+          - strong [ref=e87]: Token
+          - paragraph [ref=e88]: open…oken
+        - generic [ref=e89]:
+          - strong [ref=e90]: Config path
+          - paragraph [ref=e91]: /tmp/openclaw-control-tower/openclaw.json
+    - generic [ref=e92]:
+      - generic [ref=e219]:
+        - generic [ref=e220]:
+          - generic [ref=e221]:
+            - generic [ref=e222]: Skills
+            - heading "Gestion shared + par agent des dossiers SKILL.md" [level=3] [ref=e223]
+          - generic [ref=e224]:
+            - button "Refresh skills" [ref=e225] [cursor=pointer]
+            - button "Nouveau skill" [ref=e226] [cursor=pointer]
+            - button "Sauvegarder" [disabled] [ref=e227] [cursor=pointer]
+            - button "Supprimer" [disabled] [ref=e228] [cursor=pointer]
+        - generic [ref=e229]:
+          - strong [ref=e230]: Scopes reels du runtime
+          - paragraph [ref=e231]: Le dashboard gere les skills partages dans ~/.openclaw/skills et ~/.agents/skills, plus les skills lies a chaque agent dans workspace/skills et workspace/.agents/skills.
+          - generic [ref=e232]:
+            - generic [ref=e233]: 6 bibliotheque(s)
+            - generic [ref=e234]: 1 skill(s) geres
+            - generic [ref=e235]: 11 skill(s) resolves par le runtime
+          - generic [ref=e236]:
+            - generic [ref=e237]: shared extraDirs
+            - generic [ref=e238]: shared ~/.openclaw/skills
+            - generic [ref=e239]: shared ~/.agents/skills
+            - generic [ref=e240]: agent .agents/skills
+            - generic [ref=e241]: agent workspace/skills
+      - generic [ref=e242]:
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - button "Shared" [ref=e245]
+            - button "Par agent" [ref=e246]
+          - generic [ref=e247]:
+            - generic [ref=e248]: Bibliotheque
+            - combobox "Bibliotheque" [ref=e249]:
+              - option "Shared OpenClaw" [selected]
+              - option "Shared Personal"
+          - generic [ref=e250]:
+            - strong [ref=e251]: Shared OpenClaw
+            - paragraph [ref=e252]: Bibliotheque partagee native de l'installation OpenClaw dans ~/.openclaw/skills.
+            - code [ref=e253]: /Users/adamelhirch/.openclaw/skills
+          - group [ref=e254]:
+            - generic "Importer des skills" [ref=e255] [cursor=pointer]
+            - paragraph [ref=e256]: Accepte un repo git, un ZIP distant, un ZIP local ou un simple fichier SKILL.md.
+            - generic [ref=e257]:
+              - generic [ref=e258]: Source
+              - combobox "Source" [ref=e259]:
+                - option "Repo git" [selected]
+                - option "ZIP distant"
+                - option "ZIP local"
+                - option "SKILL.md brut"
+            - generic [ref=e260]:
+              - generic [ref=e261]: URL du repo
+              - textbox "URL du repo" [ref=e262]:
+                - /placeholder: https://github.com/org/repo.git
+            - generic [ref=e263]:
+              - generic [ref=e264]:
+                - generic [ref=e265]: Ref optionnelle
+                - textbox "Ref optionnelle" [ref=e266]:
+                  - /placeholder: main
+              - generic [ref=e267]:
+                - generic [ref=e268]: Sous-dossier optionnel
+                - textbox "Sous-dossier optionnel" [ref=e269]:
+                  - /placeholder: skills/my-skill
+            - generic [ref=e270]:
+              - checkbox "Ecraser un dossier existant si le nom collide" [ref=e271]
+              - generic [ref=e272]: Ecraser un dossier existant si le nom collide
+            - button "Importer dans cette bibliotheque" [disabled] [ref=e273] [cursor=pointer]
+          - generic [ref=e275]:
+            - strong [ref=e276]: Aucun skill
+            - paragraph [ref=e277]: Cette bibliotheque est vide. Cree un dossier de skill depuis le dashboard.
+        - generic [ref=e278]:
+          - generic [ref=e279]:
+            - strong [ref=e280]: Selectionne un skill
+            - generic [ref=e281]: synchro
+          - generic [ref=e282]:
+            - generic [ref=e283]: Library
+            - generic [ref=e284]: Shared OpenClaw
+            - generic [ref=e285]: Source runtime
+            - generic [ref=e286]: openclaw-managed
+            - generic [ref=e287]: Path
+            - code [ref=e288]: /Users/adamelhirch/.openclaw/skills/<skill>/SKILL.md
+          - generic [ref=e289]:
+            - generic [ref=e290]: Dossier du skill
+            - textbox "Dossier du skill" [ref=e291]:
+              - /placeholder: my-skill
+          - generic [ref=e292]:
+            - generic [ref=e293]: SKILL.md
+            - textbox "SKILL.md" [ref=e294]:
+              - /placeholder: Contenu du skill...
+          - generic [ref=e295]:
+            - strong [ref=e296]: Comportement runtime
+            - paragraph [ref=e297]: Les changements sont ecrits directement dans la bibliotheque choisie. OpenClaw recharge ensuite ces skills via son watcher natif ou au prochain nouveau run.

@@ -1,0 +1,25 @@
+{
+  "name": "@elytras/elytrasless",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Elytras-scoped context engine and memory overlay for OpenClaw",
+  "type": "module",
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-ai": "*",
+    "@sinclair/typebox": "0.34.48"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.11"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
